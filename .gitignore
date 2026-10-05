@@ -6,3 +6,5 @@ __pycache__/
 DEPLOIEMENT.md
 api-mock.txt
 README.md
+*.log
+*.pid
