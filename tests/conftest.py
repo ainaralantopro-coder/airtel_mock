@@ -11,6 +11,8 @@ os.environ["CLIENT_ID"] = "test-client"
 os.environ["CLIENT_SECRET"] = "test-secret"
 os.environ["BANK_BASE_URL"] = "http://bank.test"
 os.environ["BANK_OPT_IN_PATH"] = "/opt-in"
+os.environ["BANK_CHECK_ELIGIBILITY_PATH"] = "/eligibility"
+os.environ["BANK_APPLY_LOAN_PATH"] = "/apply-loan"
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402

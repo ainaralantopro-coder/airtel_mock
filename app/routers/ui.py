@@ -1,11 +1,9 @@
 """Écrans du mock : clients, enregistrement (opt-in) et messages reçus."""
 
 from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,9 +13,9 @@ from app.config import get_settings
 from app.database import get_db
 from app.models import Customer, MessageSent
 from app.schemas import CustomerCreate, is_valid_msisdn
+from app.web import templates
 
 router = APIRouter(include_in_schema=False)
-templates = Jinja2Templates(directory=Path(__file__).resolve().parent.parent / "templates")
 
 FIELD_LABELS = {
     "msisdn": "MSISDN",

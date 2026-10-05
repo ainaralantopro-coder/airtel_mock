@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Loans · Airtel Money mock{% endblock %}
+{% block content %}
+<h1>Loans</h1>
+<form method="get" class="inline-form">
+  <input name="msisdn" value="{{ msisdn }}" required pattern="\d{9}" maxlength="9" inputmode="numeric" placeholder="MSISDN (9 chiffres)">
+  <button type="submit">Rechercher</button>
+</form>
+
+{% if error %}<p class="alert error">{{ error }}</p>{% endif %}
+
+{% if loans is not none %}
+  {% if loans %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th><th>Statut</th><th>Transaction ID</th><th>Loan ID</th>
+        <th>Demandé</th><th>Montant</th><th>Frais (éligibilité)</th><th>Frais prêt</th>
+        <th>Restant dû</th><th>Échéance</th><th>Tenure</th><th>Taux</th><th>Décaissé</th><th>Message</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in loans %}
+      <tr>
+        <td class="nowrap">{{ l.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td>{% if l.status == 'BOOKED' %}<span class="badge ok">BOOKED</span>{% else %}<span class="badge err">{{ l.status }}</span>{% endif %}</td>
+        <td class="mono">{{ l.transaction_id }}</td>
+        <td class="mono">{{ l.loan_id or '' }}</td>
+        <td class="nowrap">{{ l.requested_amount | ariary }}</td>
+        <td class="nowrap">{{ l.loan_amount | ariary }}</td>
+        <td class="nowrap">{{ l.fees_amount | ariary }}</td>
+        <td class="nowrap">{{ l.loan_fees | ariary }}</td>
+        <td class="nowrap">{{ l.outstanding_amount | ariary }}</td>
+        <td class="nowrap">{{ l.due_date.strftime('%Y-%m-%d %H:%M:%S') if l.due_date else '' }}</td>
+        <td>{{ l.tenure_name or '' }}{% if l.tenure_id %} ({{ l.tenure_id }}){% endif %}</td>
+        <td>{{ l.interest_rate or '' }}</td>
+        <td>{{ 'Oui' if l.is_disbursed else 'Non' }}</td>
+        <td>{{ l.response_message or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">Aucun prêt pour {{ msisdn }}.</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

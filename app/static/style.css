@@ -93,6 +93,24 @@ tr:last-child td { border-bottom: 0; }
 
 .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; background: #eee; color: var(--muted); }
 .badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.err { background: var(--err-bg); color: var(--err); }
+
+.ussd {
+  max-width: 520px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px 0;
+}
+.ussd p { margin: 4px 0; }
+.ussd form { margin-top: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; color: var(--muted); }
+.field .inline-form { margin: 0; }
+
+.details { display: grid; grid-template-columns: max-content 1fr; gap: 6px 20px; max-width: 520px; margin: 12px 0; }
+.details dt { color: var(--muted); }
+.details dd { margin: 0; }
 
 .alert { padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
 .alert ul { margin: 0; padding-left: 18px; }

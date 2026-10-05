@@ -1,7 +1,9 @@
 """Appels sortants vers la plateforme de la banque, tous journalisés dans call_sent."""
 
 import json
+import secrets
 import time
+from datetime import datetime
 
 import httpx
 from sqlalchemy.orm import Session
@@ -14,16 +16,40 @@ def send_opt_in(db: Session, url: str, msisdn: str) -> CallSent:
     return _post_json(db, flow="opt_in", url=url, msisdn=msisdn, payload={"msisdn": msisdn})
 
 
-def is_opt_in_success(call: CallSent) -> bool:
-    """Le client n'est opted-in que si la banque répond avec "responseCode": "200".
-    Les autres champs de la réponse sont ignorés."""
+def send_check_eligibility(db: Session, url: str, msisdn: str) -> CallSent:
+    # loanAmount n'est pas obligatoire côté banque : il est envoyé à null
+    payload = {"msisdn": msisdn, "loanAmount": None}
+    return _post_json(db, flow="check_eligibility", url=url, msisdn=msisdn, payload=payload)
+
+
+def send_apply_loan(db: Session, url: str, msisdn: str, loan_amount: int, transaction_id: str) -> CallSent:
+    payload = {"loanAmount": loan_amount, "msisdn": msisdn, "transactionId": transaction_id}
+    return _post_json(db, flow="apply_loan", url=url, msisdn=msisdn, payload=payload)
+
+
+def new_transaction_id() -> str:
+    """Identifiant de transaction côté Airtel : APC + horodatage + 8 chiffres aléatoires."""
+    return f"APC{datetime.now():%Y%m%d%H%M%S}{secrets.randbelow(10**8):08d}"
+
+
+def response_json(call: CallSent) -> dict | None:
+    """Corps JSON de la réponse de la banque, ou None si l'appel a échoué ou si ce n'est pas un objet JSON."""
     if call.error or not call.response_body:
-        return False
+        return None
     try:
         body = json.loads(call.response_body)
     except ValueError:
-        return False
-    return isinstance(body, dict) and str(body.get("responseCode")) == "200"
+        return None
+    return body if isinstance(body, dict) else None
+
+
+def is_success(body: dict | None) -> bool:
+    """Seul "responseCode": "200" compte, les autres champs sont ignorés."""
+    return body is not None and str(body.get("responseCode")) == "200"
+
+
+def is_opt_in_success(call: CallSent) -> bool:
+    return is_success(response_json(call))
 
 
 def _post_json(db: Session, flow: str, url: str, msisdn: str | None, payload: dict) -> CallSent:

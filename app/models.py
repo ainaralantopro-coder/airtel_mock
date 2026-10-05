@@ -1,6 +1,7 @@
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -48,6 +49,38 @@ class MessageSent(Base):
     message_en: Mapped[str | None] = mapped_column(Text)
     message_fr: Mapped[str | None] = mapped_column(Text)
     message_es: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Loan(Base):
+    """Demande de prêt envoyée à la banque (Apply Loan), réussie ou non."""
+
+    __tablename__ = "loan"
+
+    STATUS_BOOKED = "BOOKED"
+    STATUS_FAILED = "FAILED"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    msisdn: Mapped[str] = mapped_column(String(9), index=True)
+    transaction_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    requested_amount: Mapped[int] = mapped_column(Integer)
+    fees_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))  # feesAmount de Check Eligibility
+
+    status: Mapped[str] = mapped_column(String(20), index=True)
+    response_code: Mapped[str | None] = mapped_column(String(20))
+    response_message: Mapped[str | None] = mapped_column(Text)
+
+    # Champs "data" de la réponse Apply Loan
+    loan_id: Mapped[str | None] = mapped_column(String(50), index=True)
+    loan_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    loan_fees: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    outstanding_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    due_date: Mapped[datetime | None] = mapped_column(DateTime)
+    tenure_id: Mapped[str | None] = mapped_column(String(20))
+    tenure_name: Mapped[str | None] = mapped_column(String(100))
+    interest_rate: Mapped[str | None] = mapped_column(String(20))
+
+    is_disbursed: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
