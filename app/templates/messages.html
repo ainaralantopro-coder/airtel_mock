@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Messages · Airtel Money mock{% endblock %}
+{% block content %}
+<h1>Messages envoyés</h1>
+<form method="get" class="inline-form">
+  <input name="msisdn" value="{{ msisdn }}" required pattern="\d{9}" maxlength="9" inputmode="numeric" placeholder="MSISDN (9 chiffres)">
+  <button type="submit">Rechercher</button>
+</form>
+
+{% if error %}<p class="alert error">{{ error }}</p>{% endif %}
+
+{% if messages is not none %}
+  {% if messages %}
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Date</th><th>EN</th><th>FR</th><th>ES</th></tr></thead>
+    <tbody>
+      {% for m in messages %}
+      <tr>
+        <td class="nowrap">{{ m.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        <td>{{ m.message_en or '' }}</td>
+        <td>{{ m.message_fr or '' }}</td>
+        <td>{{ m.message_es or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">Aucun message pour {{ msisdn }}.</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

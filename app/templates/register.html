@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Register · Airtel Money mock{% endblock %}
+{% block content %}
+<h1>Register (opt-in)</h1>
+<p class="hint">
+  Endpoint opt-in de la banque :
+  {% if opt_in_url %}<code>POST {{ opt_in_url }}</code>{% else %}<em>non configuré (BANK_OPT_IN_PATH vide)</em>{% endif %}
+</p>
+<form method="post" class="inline-form">
+  <input name="msisdn" value="{{ msisdn }}" required pattern="\d{9}" maxlength="9" inputmode="numeric" placeholder="MSISDN (9 chiffres)" {% if not opt_in_url %}disabled{% endif %}>
+  <button type="submit" {% if not opt_in_url %}disabled{% endif %}>Envoyer la demande d'opt-in</button>
+</form>
+
+{% if error %}<p class="alert error">{{ error }}</p>{% endif %}
+
+{% if call %}
+<section class="result">
+  <h2>Résultat de l'appel</h2>
+  {% if opted_in %}
+  <p class="alert success">Client {{ msisdn }} opted-in.</p>
+  {% else %}
+  <p class="alert error">
+    Client non opted-in :
+    {% if call.error %}échec de l'appel ({{ call.error }}).
+    {% else %}la réponse de la banque n'est pas une confirmation d'opt-in valide.{% endif %}
+  </p>
+  {% endif %}
+  {% if not call.error %}
+  <p class="hint">HTTP {{ call.response_status }} en {{ call.duration_ms }} ms</p>
+  {% endif %}
+  <h3>Requête</h3>
+  <pre>{{ call.method }} {{ call.url }}
+{{ call.request_body }}</pre>
+  {% if call.response_body is not none %}
+  <h3>Réponse</h3>
+  <pre>{{ call.response_body }}</pre>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
