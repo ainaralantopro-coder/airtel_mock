@@ -1,4 +1,5 @@
-"""Écrans prêt : Borrow loan (simulation USSD), liste des prêts et décaissement (Confirm / Cancel Loan)."""
+"""Écrans prêt : Borrow loan (simulation USSD), liste des prêts, statut (Apply Loan Status) et décaissement
+(Confirm / Cancel Loan)."""
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -9,10 +10,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.bank_client import (
+    is_pending,
     is_success,
     new_transaction_id,
     response_json,
     send_apply_loan,
+    send_apply_loan_status,
     send_check_eligibility,
     send_cancel_loan,
     send_confirm_loan,
@@ -140,6 +143,51 @@ def loan_list(request: Request, msisdn: str = "", db: Session = Depends(get_db))
     return templates.TemplateResponse(request, "loans.html", context)
 
 
+@router.post("/{loan_pk}/status", response_class=HTMLResponse)
+def check_loan_status(request: Request, loan_pk: int, db: Session = Depends(get_db)):
+    """Timeout : la réponse d'Apply Loan est considérée comme perdue, on demande son issue à la banque
+    (Apply Loan Status) et on met le prêt à jour en conséquence."""
+    status_url = get_settings().bank_apply_loan_status_url
+    loan = db.get(Loan, loan_pk)
+    error, status_code = None, 400
+    if loan is None:
+        error, status_code = "Loan not found.", 404
+    elif status_url is None:
+        error, status_code = "BANK_APPLY_LOAN_STATUS_PATH must be set in .env.", 503
+    elif not loan.status_checkable:
+        error = f"The status of a {loan.status} loan cannot be checked."
+    if error:
+        context = _list_context(db, loan.msisdn if loan else "")
+        context["error"] = error
+        return templates.TemplateResponse(request, "loans.html", context, status_code=status_code)
+
+    call = send_apply_loan_status(db, status_url, loan.msisdn, loan.transaction_id)
+    body = response_json(call)
+    context = _list_context(db, loan.msisdn)
+    if body is None:
+        # Pas de réponse exploitable : l'issue reste inconnue, le prêt n'est pas modifié
+        context["error"] = _bank_error(call, body) + " Loan unchanged."
+        return templates.TemplateResponse(request, "loans.html", context)
+
+    loan.response_code = _to_str(body.get("responseCode"))
+    loan.response_message = _bank_error(call, body) if not is_success(body) else _to_str(body.get("message"))
+    if is_success(body):
+        loan.status = Loan.STATUS_BOOKED
+        data = body.get("data") if isinstance(body.get("data"), dict) else {}
+        for field, value in _loan_fields(data).items():
+            if value is not None:
+                setattr(loan, field, value)
+    elif is_pending(body):
+        loan.status = Loan.STATUS_PENDING
+    else:
+        loan.status = Loan.STATUS_FAILED
+    db.commit()
+
+    level = {Loan.STATUS_BOOKED: "success", Loan.STATUS_PENDING: "warning"}.get(loan.status, "error")
+    context[level] = f"Apply Loan Status for {loan.transaction_id}: {loan.status}. {loan.response_message or ''}"
+    return templates.TemplateResponse(request, "loans.html", context)
+
+
 @router.post("/{loan_pk}/disburse", response_class=HTMLResponse)
 def disburse_loan(request: Request, loan_pk: int, db: Session = Depends(get_db)):
     """Disburse OK : confirme à la banque que le prêt a été versé sur le compte Mobile Money (Confirm Loan)."""
@@ -197,10 +245,10 @@ def _pending_loan(
         error, status_code = "Loan not found.", 404
     elif bank_url is None:
         error, status_code = f"{path_setting} must be set in .env.", 503
-    elif loan.status != Loan.STATUS_BOOKED or not loan.loan_id:
-        error = "Only a booked loan can be disbursed or cancelled."
     elif loan.is_disbursed:
         error = "This loan is already disbursed."
+    elif not loan.awaiting_disbursement:
+        error = "Only a booked loan can be disbursed or cancelled."
     if error is None:
         return loan, None
 
@@ -221,6 +269,7 @@ def _list_context(db: Session, msisdn: str) -> dict:
         "loans": loans,
         "confirm_url": settings.bank_confirm_loan_url,
         "cancel_url": settings.bank_cancel_loan_url,
+        "status_url": settings.bank_apply_loan_status_url,
     }
 
 
@@ -238,19 +287,26 @@ def _save_loan(
         status=Loan.STATUS_BOOKED if is_success(body) else Loan.STATUS_FAILED,
         response_code=_to_str(body.get("responseCode")) if body else None,
         response_message=_bank_error(call, body) if not is_success(body) else _to_str(body.get("message")),
-        loan_id=_to_str(data.get("loanId")),
-        loan_amount=_to_decimal(data.get("loanAmount")),
-        loan_fees=_to_decimal(data.get("loanfees")),
-        outstanding_amount=_to_decimal(data.get("outstandingAmount")),
-        due_date=_to_datetime(data.get("dueDate")),
-        tenure_id=_to_str(data.get("tenureId")),
-        tenure_name=_to_str(data.get("tenureName")),
-        interest_rate=_to_str(data.get("interestRate")),
         is_disbursed=False,
+        **_loan_fields(data),
     )
     db.add(loan)
     db.commit()
     return loan
+
+
+def _loan_fields(data: dict) -> dict:
+    """Colonnes de Loan tirées du "data" d'Apply Loan ou d'Apply Loan Status."""
+    return {
+        "loan_id": _to_str(data.get("loanId")),
+        "loan_amount": _to_decimal(data.get("loanAmount")),
+        "loan_fees": _to_decimal(data.get("loanfees")),
+        "outstanding_amount": _to_decimal(data.get("outstandingAmount")),
+        "due_date": _to_datetime(data.get("dueDate")),
+        "tenure_id": _to_str(data.get("tenureId")),
+        "tenure_name": _to_str(data.get("tenureName")),
+        "interest_rate": _to_str(data.get("interestRate")),
+    }
 
 
 def _bank_error(call: CallSent, body: dict | None) -> str:

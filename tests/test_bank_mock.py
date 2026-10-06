@@ -185,6 +185,111 @@ def test_confirm_loan_refused(bank, overrides, code, message):
     assert store.LOANS["APC1"]["status"] == "BOOKED"
 
 
+# --- Apply Loan Status ------------------------------------------------------
+
+def loan_status(bank, msisdn=OK, transaction_id="APC1"):
+    return bank.post("/api/v1/apply-loan-status", json={"msisdn": msisdn, "transactionId": transaction_id}).json()
+
+
+@pytest.fixture
+def outcome(monkeypatch):
+    """Impose l'issue du tirage aléatoire d'Apply Loan Status."""
+    def force(value):
+        monkeypatch.setattr(bank_main.random, "choice", lambda options: value)
+    return force
+
+
+def test_loan_status_booked(bank, outcome):
+    booked = apply(bank)["data"]
+    outcome("BOOKED")
+    assert loan_status(bank) == {"responseCode": "200", "message": "Loan booked sucessfully", "data": booked}
+    assert store.LOANS["APC1"]["status"] == "BOOKED"
+
+
+def test_loan_status_pending_is_redrawn(bank, outcome):
+    apply(bank)
+    outcome("PENDING")
+    assert loan_status(bank) == {"responseCode": "202", "message": "Loan request in progress"}
+    outcome("BOOKED")
+    assert loan_status(bank)["responseCode"] == "200"
+
+
+def test_loan_status_failed_is_final(bank, outcome, loans_file):
+    apply(bank)
+    outcome("FAILED")
+    assert loan_status(bank) == {"responseCode": "400", "message": "Loan request failed"}
+    assert json.loads(loans_file.read_text(encoding="utf-8"))["APC1"]["status"] == "FAILED"
+    outcome("BOOKED")
+    assert loan_status(bank)["responseCode"] == "400"
+    assert confirm(bank) == {"responseCode": "409", "message": "Loan request failed"}
+    assert cancel(bank) == {"responseCode": "409", "message": "Loan request failed"}
+
+
+def test_loan_status_random_draws_among_outcomes(bank):
+    apply(bank)
+    codes = {loan_status(bank)["responseCode"] for _ in range(30)}
+    assert codes and codes <= {"200", "202", "400"}
+
+
+def test_loan_status_forced_by_setting(bank, monkeypatch):
+    apply(bank)
+    monkeypatch.setattr(get_bank_settings(), "loan_status", "pending")
+    assert loan_status(bank)["responseCode"] == "202"
+    monkeypatch.setattr(get_bank_settings(), "loan_status", "nonsense")
+    assert loan_status(bank)["responseCode"] in {"200", "202", "400"}
+
+
+def test_loan_status_after_confirm_or_cancel(bank, outcome):
+    outcome("FAILED")  # ignoré : pas de tirage une fois le prêt confirmé ou annulé
+    apply(bank)
+    confirm(bank)
+    assert loan_status(bank)["responseCode"] == "200"
+    apply(bank, transaction_id="APC2")
+    cancel(bank, transaction_id="APC2")
+    assert loan_status(bank, transaction_id="APC2") == {"responseCode": "409", "message": "Loan is cancelled"}
+
+
+@pytest.mark.parametrize(
+    "msisdn, transaction_id, code",
+    [(OK, "UNKNOWN", "404"), ("997739698", "APC1", "404"), (OK, "", "400")],
+)
+def test_loan_status_refused(bank, msisdn, transaction_id, code):
+    apply(bank)
+    assert loan_status(bank, msisdn, transaction_id)["responseCode"] == code
+
+
+def test_end_to_end_timeout_after_lost_apply_response(client, airtel_to_bank, outcome, monkeypatch):
+    """La banque accorde le prêt mais sa réponse est perdue : le mock Airtel le note FAILED, puis le bouton
+    Timeout (Apply Loan Status) le récupère."""
+    bank_client_factory = bank_client.httpx.Client
+
+    def losing_apply_response(**kw):
+        http = bank_client_factory(**kw)
+        original_post = http.post
+
+        def post(url, **kwargs):
+            response = original_post(url, **kwargs)
+            if url.endswith("/apply-loan"):
+                raise bank_client.httpx.ReadTimeout("timed out")
+            return response
+        http.post = post
+        return http
+
+    monkeypatch.setattr(bank_client.httpx, "Client", losing_apply_response)
+    form = {"msisdn": OK, "min_amount": "5000", "max_amount": "100000", "eligible_amount": "50000",
+            "fees_amount": "1000", "amount": "20000"}
+    client.post("/loans/borrow/apply", data=form)
+    with SessionLocal() as db:
+        loan = db.scalar(select(Loan))
+    assert loan.status == "FAILED" and store.LOANS[loan.transaction_id]["status"] == "BOOKED"
+
+    outcome("BOOKED")
+    assert "Disburse OK" in client.post(f"/loans/{loan.id}/status").text
+    with SessionLocal() as db:
+        loan = db.get(Loan, loan.id)
+    assert loan.status == "BOOKED" and loan.loan_id == store.LOANS[loan.transaction_id]["loanId"]
+
+
 # --- Cancel Loan ------------------------------------------------------------
 
 def cancel(bank, msisdn=OK, transaction_id="APC1"):
@@ -267,6 +372,7 @@ def airtel_to_bank(bank, monkeypatch):
     monkeypatch.setattr(settings, "bank_opt_in_path", "/api/v1/opt-in")
     monkeypatch.setattr(settings, "bank_check_eligibility_path", "/api/v1/check-eligibility")
     monkeypatch.setattr(settings, "bank_apply_loan_path", "/api/v1/apply-loan")
+    monkeypatch.setattr(settings, "bank_apply_loan_status_path", "/api/v1/apply-loan-status")
     monkeypatch.setattr(settings, "bank_confirm_loan_path", "/api/v1/confirm-loan")
     monkeypatch.setattr(settings, "bank_cancel_loan_path", "/api/v1/cancel-loan")
     monkeypatch.setattr(bank_client.httpx, "Client", lambda **kw: TestClient(bank_main.app))

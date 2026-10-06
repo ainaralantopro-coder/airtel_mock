@@ -60,6 +60,7 @@ class Loan(Base):
     STATUS_BOOKED = "BOOKED"
     STATUS_FAILED = "FAILED"
     STATUS_CANCELLED = "CANCELLED"  # versement échoué, prêt annulé à la banque (Cancel Loan)
+    STATUS_PENDING = "PENDING"  # Apply Loan Status : demande encore en cours de traitement à la banque
 
     id: Mapped[int] = mapped_column(primary_key=True)
     msisdn: Mapped[str] = mapped_column(String(9), index=True)
@@ -87,6 +88,24 @@ class Loan(Base):
     disbursed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def awaiting_disbursement(self) -> bool:
+        """Prêt accordé, ni décaissé ni annulé : boutons Disburse OK / KO."""
+        return self.status == self.STATUS_BOOKED and bool(self.loan_id) and not self.is_disbursed
+
+    @property
+    def status_checkable(self) -> bool:
+        """Issue d'Apply Loan à (re)demander à la banque avec Apply Loan Status : bouton Timeout.
+
+        Prêt en attente de décaissement, demande en cours (PENDING), ou échec sans réponse de la banque
+        (timeout, banque injoignable, réponse illisible : pas de responseCode).
+        """
+        return (
+            self.awaiting_disbursement
+            or self.status == self.STATUS_PENDING
+            or (self.status == self.STATUS_FAILED and self.response_code is None)
+        )
 
 
 class AccessToken(Base):

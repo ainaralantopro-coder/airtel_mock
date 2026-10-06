@@ -313,3 +313,77 @@ def test_cancel_disabled_without_bank_path(client, bank, monkeypatch):
     monkeypatch.setattr(get_settings(), "bank_cancel_loan_path", "")
     assert "BANK_CANCEL_LOAN_PATH is not set" in client.get(f"/loans?msisdn={MSISDN}").text
     assert client.post(f"/loans/{loan.id}/cancel").status_code == 503
+
+
+# --- Timeout (Apply Loan Status) ---------------------------------------------
+
+def status_of(loan_pk: int, client) -> str:
+    return client.post(f"/loans/{loan_pk}/status").text
+
+
+def test_timeout_button_visibility(client, bank):
+    book_loan(client, bank)
+    bank["responses"]["/apply-loan"] = (200, {"responseCode": "409", "message": "Customer has an active loan"})
+    client.post("/loans/borrow/apply", data={**OFFER_FORM, "amount": "20000"})
+    bank["responses"]["/apply-loan"] = httpx.ReadTimeout("timed out")
+    client.post("/loans/borrow/apply", data={**OFFER_FORM, "amount": "20000"})
+    # BOOKED en attente + FAILED sans réponse : oui ; FAILED avec responseCode : non
+    assert client.get(f"/loans?msisdn={MSISDN}").text.count(">Timeout</button>") == 2
+
+
+def test_timeout_status_booked_recovers_failed_loan(client, bank):
+    bank["responses"]["/apply-loan"] = httpx.ReadTimeout("timed out")
+    client.post("/loans/borrow/apply", data={**OFFER_FORM, "amount": "20000"})
+    [loan] = loans()
+    assert (loan.status, loan.response_code, loan.loan_id) == ("FAILED", None, None)
+
+    bank["responses"]["/apply-loan-status"] = (200, BOOKED)
+    page = status_of(loan.id, client)
+    assert "Apply Loan Status for" in page and "Disburse OK" in page
+
+    assert bank["requests"][-1] == ("/apply-loan-status", {"msisdn": MSISDN, "transactionId": loan.transaction_id})
+    [loan] = loans()
+    assert (loan.status, loan.response_code, loan.loan_id) == ("BOOKED", "200", "LN0001")
+    assert (loan.loan_amount, loan.outstanding_amount) == (Decimal("20000"), Decimal("20400"))
+
+
+def test_timeout_status_pending_then_failed(client, bank):
+    loan = book_loan(client, bank)
+    bank["responses"]["/apply-loan-status"] = (200, {"responseCode": "202", "message": "Loan request in progress"})
+    page = status_of(loan.id, client)
+    assert "alert warning" in page and "Loan request in progress" in page
+    assert "Disburse OK" not in page and ">Timeout</button>" in page
+    [loan] = loans()
+    assert loan.status == "PENDING" and loan.loan_id == "LN0001"
+
+    bank["responses"]["/apply-loan-status"] = (200, {"responseCode": "400", "message": "Loan request failed"})
+    page = status_of(loan.id, client)
+    assert "alert error" in page and ">Timeout</button>" not in page
+    [loan] = loans()
+    assert (loan.status, loan.response_code, loan.response_message) == ("FAILED", "400", "Loan request failed")
+    assert client.post(f"/loans/{loan.id}/status").status_code == 400
+
+
+def test_timeout_without_answer_leaves_loan_unchanged(client, bank):
+    loan = book_loan(client, bank)
+    bank["responses"]["/apply-loan-status"] = httpx.ConnectError("refused")
+    page = status_of(loan.id, client)
+    assert "Bank call failed" in page and "Loan unchanged." in page
+    [loan] = loans()
+    assert (loan.status, loan.response_code) == ("BOOKED", "200")
+
+
+def test_timeout_not_allowed_after_disbursement(client, bank):
+    loan = book_loan(client, bank)
+    bank["responses"]["/confirm-loan"] = (200, {"responseCode": "200", "message": "Loan confirmed sucessfully"})
+    client.post(f"/loans/{loan.id}/disburse")
+    r = client.post(f"/loans/{loan.id}/status")
+    assert r.status_code == 400 and "cannot be checked" in r.text
+    assert client.post("/loans/999999/status").status_code == 404
+
+
+def test_timeout_disabled_without_bank_path(client, bank, monkeypatch):
+    loan = book_loan(client, bank)
+    monkeypatch.setattr(get_settings(), "bank_apply_loan_status_path", "")
+    assert "BANK_APPLY_LOAN_STATUS_PATH is not set" in client.get(f"/loans?msisdn={MSISDN}").text
+    assert client.post(f"/loans/{loan.id}/status").status_code == 503

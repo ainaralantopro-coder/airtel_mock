@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models import CallSent
 
+PENDING_RESPONSE_CODE = "202"
+
 
 def send_opt_in(db: Session, url: str, msisdn: str) -> CallSent:
     return _post_json(db, flow="opt_in", url=url, msisdn=msisdn, payload={"msisdn": msisdn})
@@ -25,6 +27,11 @@ def send_check_eligibility(db: Session, url: str, msisdn: str) -> CallSent:
 def send_apply_loan(db: Session, url: str, msisdn: str, loan_amount: int, transaction_id: str) -> CallSent:
     payload = {"loanAmount": loan_amount, "msisdn": msisdn, "transactionId": transaction_id}
     return _post_json(db, flow="apply_loan", url=url, msisdn=msisdn, payload=payload)
+
+
+def send_apply_loan_status(db: Session, url: str, msisdn: str, transaction_id: str) -> CallSent:
+    payload = {"msisdn": msisdn, "transactionId": transaction_id}
+    return _post_json(db, flow="apply_loan_status", url=url, msisdn=msisdn, payload=payload)
 
 
 def send_confirm_loan(
@@ -60,6 +67,11 @@ def response_json(call: CallSent) -> dict | None:
     except ValueError:
         return None
     return body if isinstance(body, dict) else None
+
+
+def is_pending(body: dict | None) -> bool:
+    """Demande encore en cours à la banque. Code provisoire, absent de la spec."""
+    return body is not None and str(body.get("responseCode")) == PENDING_RESPONSE_CODE
 
 
 def is_success(body: dict | None) -> bool:

@@ -1,5 +1,5 @@
 """Banque simulée : répond aux appels sortants du mock Airtel (opt-in, Check Eligibility, Apply Loan,
-Confirm Loan, Cancel Loan).
+Apply Loan Status, Confirm Loan, Cancel Loan).
 
 Les chemins sont provisoires, en attendant la spec de la banque. Les prêts accordés sont conservés dans
 un fichier JSON (BANK_MOCK_LOANS_FILE, voir store.py). Les refus métier sont renvoyés en HTTP 200 avec
@@ -9,6 +9,7 @@ un responseCode différent de "200", seul champ lu par le mock Airtel.
 import asyncio
 import json
 import logging
+import random
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -21,6 +22,14 @@ from bank_mock import scenarios, store
 from bank_mock.config import get_settings
 
 API_PREFIX = "/api/v1"
+
+# Champs "data" d'un prêt, renvoyés par Apply Loan et Apply Loan Status
+LOAN_DATA_KEYS = (
+    "transactionId", "loanId", "loanAmount", "loanfees", "outstandingAmount",
+    "dueDate", "tenureId", "tenureName", "interestRate",
+)
+# Issues possibles d'Apply Loan Status pour un prêt accordé et pas encore confirmé ni annulé
+STATUS_OUTCOMES = ("BOOKED", "FAILED", "PENDING")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("bank_mock")
@@ -138,6 +147,46 @@ async def apply_loan(request: Request):
     return _reply("apply_loan", body, {"responseCode": "200", "message": "Loan booked sucessfully", "data": loan})
 
 
+@app.post(API_PREFIX + "/apply-loan-status")
+async def apply_loan_status(request: Request):
+    """Airtel n'a pas reçu la réponse d'Apply Loan (timeout) et demande l'issue de la demande.
+
+    Pour un prêt accordé ni confirmé ni annulé, l'issue est tirée au hasard (STATUS_OUTCOMES), sauf si
+    BANK_MOCK_LOAN_STATUS l'impose. Un tirage FAILED est définitif : le prêt ne peut plus être confirmé.
+    """
+    body, msisdn, early = await _start(request, "apply_loan_status")
+    if early:
+        return early
+
+    transaction_id = str(body.get("transactionId") or "").strip()
+    loan = store.LOANS.get(transaction_id)
+
+    if not transaction_id:
+        return _reply("apply_loan_status", body, {"responseCode": "400", "message": "transactionId is required"})
+    if loan is None or loan["msisdn"] != msisdn:
+        return _reply("apply_loan_status", body, {"responseCode": "404", "message": "Loan not found"})
+
+    status = loan["status"]
+    if status == "BOOKED":
+        forced = get_settings().loan_status.strip().upper()
+        status = forced if forced in STATUS_OUTCOMES else random.choice(STATUS_OUTCOMES)
+        logger.info("apply_loan_status: %s -> outcome %s", transaction_id, status)
+        if status == "FAILED":
+            loan["status"] = "FAILED"
+            store.save()
+
+    if status in ("BOOKED", "CONFIRMED"):
+        data = {key: loan[key] for key in LOAN_DATA_KEYS}
+        content = {"responseCode": "200", "message": "Loan booked sucessfully", "data": data}
+    elif status == "PENDING":
+        content = {"responseCode": "202", "message": "Loan request in progress"}
+    elif status == "CANCELLED":
+        content = {"responseCode": "409", "message": "Loan is cancelled"}
+    else:
+        content = {"responseCode": "400", "message": "Loan request failed"}
+    return _reply("apply_loan_status", body, content)
+
+
 @app.post(API_PREFIX + "/confirm-loan")
 async def confirm_loan(request: Request):
     """Airtel confirme que le prêt a été décaissé sur le compte Mobile Money du client."""
@@ -162,6 +211,8 @@ async def confirm_loan(request: Request):
         return _reply("confirm_loan", body, {"responseCode": "409", "message": "Loan already confirmed"})
     if loan["status"] == "CANCELLED":
         return _reply("confirm_loan", body, {"responseCode": "409", "message": "Loan is cancelled"})
+    if loan["status"] == "FAILED":
+        return _reply("confirm_loan", body, {"responseCode": "409", "message": "Loan request failed"})
 
     loan["status"] = "CONFIRMED"
     loan["externalTransactionId"] = external_transaction_id
@@ -187,6 +238,8 @@ async def cancel_loan(request: Request):
         return _reply("cancel_loan", body, {"responseCode": "409", "message": "Loan already confirmed"})
     if loan["status"] == "CANCELLED":
         return _reply("cancel_loan", body, {"responseCode": "409", "message": "Loan already cancelled"})
+    if loan["status"] == "FAILED":
+        return _reply("cancel_loan", body, {"responseCode": "409", "message": "Loan request failed"})
 
     loan["status"] = "CANCELLED"
     store.save()

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     bank_opt_in_path: str = ""
     bank_check_eligibility_path: str = ""
     bank_apply_loan_path: str = ""
+    bank_apply_loan_status_path: str = ""
     bank_confirm_loan_path: str = ""
     bank_cancel_loan_path: str = ""
     bank_timeout_seconds: float = 30.0
@@ -31,6 +32,10 @@ class Settings(BaseSettings):
     @property
     def bank_apply_loan_url(self) -> str | None:
         return self._bank_url(self.bank_apply_loan_path)
+
+    @property
+    def bank_apply_loan_status_url(self) -> str | None:
+        return self._bank_url(self.bank_apply_loan_status_path)
 
     @property
     def bank_confirm_loan_url(self) -> str | None:

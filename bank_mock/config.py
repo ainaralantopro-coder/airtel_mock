@@ -20,6 +20,9 @@ class BankMockSettings(BaseSettings):
     interest_rate: int = 2  # en %, appliqué aux frais
     tenure_days: int = 30
 
+    # Issue imposée à Apply Loan Status (BOOKED, FAILED ou PENDING) ; vide = tirage aléatoire
+    loan_status: str = ""
+
 
 @lru_cache
 def get_settings() -> BankMockSettings:

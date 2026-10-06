@@ -13,6 +13,7 @@ os.environ["BANK_BASE_URL"] = "http://bank.test"
 os.environ["BANK_OPT_IN_PATH"] = "/opt-in"
 os.environ["BANK_CHECK_ELIGIBILITY_PATH"] = "/eligibility"
 os.environ["BANK_APPLY_LOAN_PATH"] = "/apply-loan"
+os.environ["BANK_APPLY_LOAN_STATUS_PATH"] = "/apply-loan-status"
 os.environ["BANK_CONFIRM_LOAN_PATH"] = "/confirm-loan"
 os.environ["BANK_CANCEL_LOAN_PATH"] = "/cancel-loan"
 

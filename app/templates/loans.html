@@ -9,6 +9,7 @@
 
 {% if error %}<p class="alert error">{{ error }}</p>{% endif %}
 {% if success %}<p class="alert success">{{ success }}</p>{% endif %}
+{% if warning %}<p class="alert warning">{{ warning }}</p>{% endif %}
 
 {% if loans is not none %}
   {% if loans %}
@@ -25,7 +26,7 @@
       {% for l in loans %}
       <tr>
         <td class="nowrap">{{ l.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-        <td>{% if l.status == 'BOOKED' %}<span class="badge ok">BOOKED</span>{% elif l.status == 'CANCELLED' %}<span class="badge">CANCELLED</span>{% else %}<span class="badge err">{{ l.status }}</span>{% endif %}</td>
+        <td>{% if l.status == 'BOOKED' %}<span class="badge ok">BOOKED</span>{% elif l.status in ('CANCELLED', 'PENDING') %}<span class="badge">{{ l.status }}</span>{% else %}<span class="badge err">{{ l.status }}</span>{% endif %}</td>
         <td class="mono">{{ l.transaction_id }}</td>
         <td class="mono">{{ l.loan_id or '' }}</td>
         <td class="nowrap">{{ l.requested_amount | ariary }}</td>
@@ -39,13 +40,20 @@
         <td class="nowrap">{% if l.is_disbursed %}Yes{% if l.external_transaction_id %}<br><span class="mono hint">{{ l.external_transaction_id }}</span>{% endif %}{% else %}No{% endif %}</td>
         <td>{{ l.response_message or '' }}</td>
         <td class="actions">
-          {% if l.status == 'BOOKED' and l.loan_id and not l.is_disbursed %}
+          {% if l.awaiting_disbursement %}
           <form method="post" action="/loans/{{ l.id }}/disburse">
             <button type="submit" {% if not confirm_url %}disabled title="BANK_CONFIRM_LOAN_PATH is not set"{% endif %}>Disburse OK</button>
           </form>
           <form method="post" action="/loans/{{ l.id }}/cancel"
                 onsubmit="return confirm('Disbursement failed: cancel loan {{ l.transaction_id }} at the bank?')">
             <button type="submit" class="secondary" {% if not cancel_url %}disabled title="BANK_CANCEL_LOAN_PATH is not set"{% endif %}>Disburse KO</button>
+          </form>
+          {% endif %}
+          {% if l.status_checkable %}
+          <form method="post" action="/loans/{{ l.id }}/status">
+            <button type="submit" class="secondary"
+                    title="{{ 'BANK_APPLY_LOAN_STATUS_PATH is not set' if not status_url else 'Treat the Apply Loan response as lost and ask the bank for the loan status' }}"
+                    {% if not status_url %}disabled{% endif %}>Timeout</button>
           </form>
           {% endif %}
         </td>
