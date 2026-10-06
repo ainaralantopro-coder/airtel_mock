@@ -8,3 +8,4 @@ api-mock.txt
 README.md
 *.log
 *.pid
+bank_mock_loans.json*

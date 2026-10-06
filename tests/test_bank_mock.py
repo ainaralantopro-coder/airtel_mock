@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 
 import pytest
@@ -10,6 +11,7 @@ from app.database import SessionLocal
 from app.models import Customer, Loan
 from app.web import format_ariary
 from bank_mock import main as bank_main
+from bank_mock import store
 from bank_mock.config import get_settings as get_bank_settings
 
 OK = "997739690"
@@ -21,11 +23,17 @@ ACTIVE_LOAN = "997739695"
 
 
 @pytest.fixture
-def bank():
-    bank_main.LOANS.clear()
+def loans_file(tmp_path, monkeypatch):
+    path = tmp_path / "loans.json"
+    monkeypatch.setattr(get_bank_settings(), "loans_file", str(path))
+    return path
+
+
+@pytest.fixture
+def bank(loans_file):
     with TestClient(bank_main.app) as c:
         yield c
-    bank_main.LOANS.clear()
+    store.LOANS.clear()
 
 
 def apply(bank, msisdn=OK, amount=20000, transaction_id="APC1"):
@@ -147,7 +155,7 @@ def test_apply_loan_duplicate_transaction(bank):
 # --- Confirm Loan -----------------------------------------------------------
 
 def confirm(bank, **overrides):
-    loan = bank_main.LOANS["APC1"]
+    loan = store.LOANS["APC1"]
     body = {"msisdn": OK, "transactionId": "APC1", "loanAmount": loan["loanAmount"], "loanId": loan["loanId"],
             "externalTransactionId": "APC9", **overrides}
     return bank.post("/api/v1/confirm-loan", json=body).json()
@@ -174,7 +182,28 @@ def test_confirm_loan_success(bank):
 def test_confirm_loan_refused(bank, overrides, code, message):
     apply(bank)
     assert confirm(bank, **overrides) == {"responseCode": code, "message": message}
-    assert bank_main.LOANS["APC1"]["status"] == "BOOKED"
+    assert store.LOANS["APC1"]["status"] == "BOOKED"
+
+
+# --- Persistance JSON -------------------------------------------------------
+
+def test_loans_survive_restart(bank, loans_file):
+    booked = apply(bank)["data"]
+    saved = json.loads(loans_file.read_text(encoding="utf-8"))
+    assert saved["APC1"]["loanId"] == booked["loanId"] and saved["APC1"]["status"] == "BOOKED"
+
+    store.LOANS.clear()
+    with TestClient(bank_main.app) as restarted:
+        assert confirm(restarted)["responseCode"] == "200"
+    assert json.loads(loans_file.read_text(encoding="utf-8"))["APC1"]["status"] == "CONFIRMED"
+    assert not loans_file.with_name("loans.json.tmp").exists()
+
+
+def test_corrupt_loans_file_stops_startup(loans_file):
+    loans_file.write_text("{not json", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="not valid JSON"):
+        with TestClient(bank_main.app):
+            pass
 
 
 def test_scenarios_listed(bank):
@@ -210,10 +239,10 @@ def test_end_to_end_opt_in_and_loan(client, customer, airtel_to_bank):
     with SessionLocal() as db:
         loan = db.scalar(select(Loan))
     assert loan.status == "BOOKED"
-    assert bank_main.LOANS[loan.transaction_id]["loanId"] == loan.loan_id
+    assert store.LOANS[loan.transaction_id]["loanId"] == loan.loan_id
 
     r = client.post(f"/loans/{loan.id}/disburse")
     assert "Loan confirmed sucessfully" in r.text
-    assert bank_main.LOANS[loan.transaction_id]["status"] == "CONFIRMED"
+    assert store.LOANS[loan.transaction_id]["status"] == "CONFIRMED"
     with SessionLocal() as db:
         assert db.get(Loan, loan.id).is_disbursed is True

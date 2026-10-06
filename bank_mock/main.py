@@ -1,22 +1,23 @@
 """Banque simulée : répond aux appels sortants du mock Airtel (opt-in, Check Eligibility, Apply Loan,
 Confirm Loan).
 
-Les chemins sont provisoires, en attendant la spec de la banque. L'état (prêts accordés) est en mémoire
-et repart de zéro à chaque redémarrage. Les refus métier sont renvoyés en HTTP 200 avec un responseCode
-différent de "200", seul champ lu par le mock Airtel.
+Les chemins sont provisoires, en attendant la spec de la banque. Les prêts accordés sont conservés dans
+un fichier JSON (BANK_MOCK_LOANS_FILE, voir store.py). Les refus métier sont renvoyés en HTTP 200 avec
+un responseCode différent de "200", seul champ lu par le mock Airtel.
 """
 
 import asyncio
 import json
 import logging
 import secrets
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
-from bank_mock import scenarios
+from bank_mock import scenarios, store
 from bank_mock.config import get_settings
 
 API_PREFIX = "/api/v1"
@@ -24,15 +25,21 @@ API_PREFIX = "/api/v1"
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("bank_mock")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    store.load()
+    logger.info("%s loan(s) loaded from %s", len(store.LOANS), get_settings().loans_file)
+    yield
+
+
 app = FastAPI(
     title="Bank mock",
     description="Simulated partner bank answering the Airtel Money mock. Behaviour depends on the last digit "
     "of the MSISDN: see GET /api/v1/scenarios.",
     version="0.1.0",
+    lifespan=lifespan,
 )
-
-# transactionId -> données du prêt accordé
-LOANS: dict[str, dict] = {}
 
 
 @app.get(API_PREFIX + "/scenarios")
@@ -47,7 +54,7 @@ def list_scenarios():
 @app.get(API_PREFIX + "/loans")
 def list_loans(msisdn: str = ""):
     """Prêts accordés depuis le démarrage, pour vérification."""
-    return [loan for loan in LOANS.values() if not msisdn or loan["msisdn"] == msisdn]
+    return [loan for loan in store.LOANS.values() if not msisdn or loan["msisdn"] == msisdn]
 
 
 @app.post(API_PREFIX + "/opt-in")
@@ -102,7 +109,7 @@ async def apply_loan(request: Request):
 
     if not transaction_id:
         return _reply("apply_loan", body, {"responseCode": "400", "message": "transactionId is required"})
-    if transaction_id in LOANS:
+    if transaction_id in store.LOANS:
         return _reply("apply_loan", body, {"responseCode": "409", "message": "Duplicate transactionId"})
     if scenario == scenarios.REFUSED:
         return _reply("apply_loan", body, {"responseCode": "400", "message": "Customer not eligible"})
@@ -126,7 +133,8 @@ async def apply_loan(request: Request):
         "tenureName": f"{settings.tenure_days} days",
         "interestRate": str(settings.interest_rate),
     }
-    LOANS[transaction_id] = {"msisdn": msisdn, **loan, "status": "BOOKED", "externalTransactionId": None}
+    store.LOANS[transaction_id] = {"msisdn": msisdn, **loan, "status": "BOOKED", "externalTransactionId": None}
+    store.save()
     return _reply("apply_loan", body, {"responseCode": "200", "message": "Loan booked sucessfully", "data": loan})
 
 
@@ -139,7 +147,7 @@ async def confirm_loan(request: Request):
 
     transaction_id = str(body.get("transactionId") or "").strip()
     external_transaction_id = str(body.get("externalTransactionId") or "").strip()
-    loan = LOANS.get(transaction_id)
+    loan = store.LOANS.get(transaction_id)
 
     if not transaction_id or not external_transaction_id:
         message = "transactionId and externalTransactionId are required"
@@ -155,6 +163,7 @@ async def confirm_loan(request: Request):
 
     loan["status"] = "CONFIRMED"
     loan["externalTransactionId"] = external_transaction_id
+    store.save()
     return _reply("confirm_loan", body, {"responseCode": "200", "message": "Loan confirmed sucessfully"})
 
 
