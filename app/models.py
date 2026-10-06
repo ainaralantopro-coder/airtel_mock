@@ -59,6 +59,7 @@ class Loan(Base):
 
     STATUS_BOOKED = "BOOKED"
     STATUS_FAILED = "FAILED"
+    STATUS_CANCELLED = "CANCELLED"  # versement échoué, prêt annulé à la banque (Cancel Loan)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     msisdn: Mapped[str] = mapped_column(String(9), index=True)
@@ -84,6 +85,7 @@ class Loan(Base):
     is_disbursed: Mapped[bool] = mapped_column(Boolean, default=False)
     external_transaction_id: Mapped[str | None] = mapped_column(String(50))
     disbursed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

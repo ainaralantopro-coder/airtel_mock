@@ -25,7 +25,7 @@
       {% for l in loans %}
       <tr>
         <td class="nowrap">{{ l.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-        <td>{% if l.status == 'BOOKED' %}<span class="badge ok">BOOKED</span>{% else %}<span class="badge err">{{ l.status }}</span>{% endif %}</td>
+        <td>{% if l.status == 'BOOKED' %}<span class="badge ok">BOOKED</span>{% elif l.status == 'CANCELLED' %}<span class="badge">CANCELLED</span>{% else %}<span class="badge err">{{ l.status }}</span>{% endif %}</td>
         <td class="mono">{{ l.transaction_id }}</td>
         <td class="mono">{{ l.loan_id or '' }}</td>
         <td class="nowrap">{{ l.requested_amount | ariary }}</td>
@@ -42,6 +42,10 @@
           {% if l.status == 'BOOKED' and l.loan_id and not l.is_disbursed %}
           <form method="post" action="/loans/{{ l.id }}/disburse">
             <button type="submit" {% if not confirm_url %}disabled title="BANK_CONFIRM_LOAN_PATH is not set"{% endif %}>Disburse OK</button>
+          </form>
+          <form method="post" action="/loans/{{ l.id }}/cancel"
+                onsubmit="return confirm('Disbursement failed: cancel loan {{ l.transaction_id }} at the bank?')">
+            <button type="submit" class="secondary" {% if not cancel_url %}disabled title="BANK_CANCEL_LOAN_PATH is not set"{% endif %}>Disburse KO</button>
           </form>
           {% endif %}
         </td>

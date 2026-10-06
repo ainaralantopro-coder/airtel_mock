@@ -185,6 +185,54 @@ def test_confirm_loan_refused(bank, overrides, code, message):
     assert store.LOANS["APC1"]["status"] == "BOOKED"
 
 
+# --- Cancel Loan ------------------------------------------------------------
+
+def cancel(bank, msisdn=OK, transaction_id="APC1"):
+    return bank.post("/api/v1/cancel-loan", json={"msisdn": msisdn, "transactionId": transaction_id}).json()
+
+
+def test_cancel_loan_success(bank, loans_file):
+    apply(bank)
+    assert cancel(bank) == {"responseCode": "200", "message": "Loan Cancelled sucessfully", "msisdn": OK}
+    assert json.loads(loans_file.read_text(encoding="utf-8"))["APC1"]["status"] == "CANCELLED"
+    assert cancel(bank) == {"responseCode": "409", "message": "Loan already cancelled"}
+    assert confirm(bank) == {"responseCode": "409", "message": "Loan is cancelled"}
+
+
+def test_cancel_confirmed_loan_refused(bank):
+    apply(bank)
+    confirm(bank)
+    assert cancel(bank) == {"responseCode": "409", "message": "Loan already confirmed"}
+    assert store.LOANS["APC1"]["status"] == "CONFIRMED"
+
+
+@pytest.mark.parametrize(
+    "msisdn, transaction_id, code, message",
+    [
+        (OK, "UNKNOWN", "404", "Loan not found"),
+        ("997739698", "APC1", "404", "Loan not found"),
+        (OK, "", "400", "transactionId is required"),
+    ],
+)
+def test_cancel_loan_refused(bank, msisdn, transaction_id, code, message):
+    apply(bank)
+    assert cancel(bank, msisdn, transaction_id) == {"responseCode": code, "message": message}
+    assert store.LOANS["APC1"]["status"] == "BOOKED"
+
+
+def test_end_to_end_disburse_ko(client, airtel_to_bank):
+    form = {"msisdn": OK, "min_amount": "5000", "max_amount": "100000", "eligible_amount": "50000",
+            "fees_amount": "1000", "amount": "20000"}
+    client.post("/loans/borrow/apply", data=form)
+    with SessionLocal() as db:
+        loan = db.scalar(select(Loan))
+    r = client.post(f"/loans/{loan.id}/cancel")
+    assert "Loan Cancelled sucessfully" in r.text
+    assert store.LOANS[loan.transaction_id]["status"] == "CANCELLED"
+    with SessionLocal() as db:
+        assert db.get(Loan, loan.id).status == "CANCELLED"
+
+
 # --- Persistance JSON -------------------------------------------------------
 
 def test_loans_survive_restart(bank, loans_file):
@@ -220,6 +268,7 @@ def airtel_to_bank(bank, monkeypatch):
     monkeypatch.setattr(settings, "bank_check_eligibility_path", "/api/v1/check-eligibility")
     monkeypatch.setattr(settings, "bank_apply_loan_path", "/api/v1/apply-loan")
     monkeypatch.setattr(settings, "bank_confirm_loan_path", "/api/v1/confirm-loan")
+    monkeypatch.setattr(settings, "bank_cancel_loan_path", "/api/v1/cancel-loan")
     monkeypatch.setattr(bank_client.httpx, "Client", lambda **kw: TestClient(bank_main.app))
 
 

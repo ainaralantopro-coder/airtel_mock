@@ -41,6 +41,11 @@ def send_confirm_loan(
     return _post_json(db, flow="confirm_loan", url=url, msisdn=msisdn, payload=payload)
 
 
+def send_cancel_loan(db: Session, url: str, msisdn: str, transaction_id: str) -> CallSent:
+    payload = {"msisdn": msisdn, "transactionId": transaction_id}
+    return _post_json(db, flow="cancel_loan", url=url, msisdn=msisdn, payload=payload)
+
+
 def new_transaction_id() -> str:
     """Identifiant de transaction côté Airtel : APC + horodatage + 8 chiffres aléatoires."""
     return f"APC{datetime.now():%Y%m%d%H%M%S}{secrets.randbelow(10**8):08d}"

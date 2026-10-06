@@ -214,7 +214,8 @@ def test_disburse_button_only_on_booked_loans(client, bank):
     book_loan(client, bank)
     bank["responses"]["/apply-loan"] = (200, {"responseCode": "409", "message": "Customer has an active loan"})
     client.post("/loans/borrow/apply", data={**OFFER_FORM, "amount": "20000"})
-    assert client.get(f"/loans?msisdn={MSISDN}").text.count("Disburse OK") == 1
+    page = client.get(f"/loans?msisdn={MSISDN}").text
+    assert page.count("Disburse OK") == 1 and page.count("Disburse KO") == 1
 
 
 def test_disburse_confirms_loan(client, bank):
@@ -255,6 +256,7 @@ def test_disburse_failed_loan_rejected(client, bank):
     [loan] = loans()
     r = client.post(f"/loans/{loan.id}/disburse")
     assert r.status_code == 400 and "Only a booked loan" in r.text
+    assert client.post(f"/loans/{loan.id}/cancel").status_code == 400
     assert client.post("/loans/999999/disburse").status_code == 404
 
 
@@ -264,3 +266,50 @@ def test_disburse_disabled_without_bank_path(client, bank, monkeypatch):
     assert "BANK_CONFIRM_LOAN_PATH is not set" in client.get(f"/loans?msisdn={MSISDN}").text
     assert client.post(f"/loans/{loan.id}/disburse").status_code == 503
     assert len(bank["requests"]) == 1
+
+
+# --- Disburse KO (Cancel Loan) ----------------------------------------------
+
+CANCELLED = {"responseCode": "200", "message": "Loan Cancelled sucessfully", "msisdn": MSISDN}
+
+
+def test_cancel_loan(client, bank):
+    loan = book_loan(client, bank)
+    bank["responses"]["/cancel-loan"] = (200, CANCELLED)
+    r = client.post(f"/loans/{loan.id}/cancel")
+    assert r.status_code == 200
+    assert "Loan Cancelled sucessfully" in r.text and "CANCELLED" in r.text
+    assert "Disburse OK" not in r.text and "Disburse KO" not in r.text
+
+    assert bank["requests"][-1] == ("/cancel-loan", {"msisdn": MSISDN, "transactionId": loan.transaction_id})
+    [loan] = loans()
+    assert loan.status == "CANCELLED" and loan.cancelled_at is not None and loan.is_disbursed is False
+
+    assert client.post(f"/loans/{loan.id}/cancel").status_code == 400
+    assert client.post(f"/loans/{loan.id}/disburse").status_code == 400
+    assert len(bank["requests"]) == 2
+
+
+def test_cancel_refused_by_bank(client, bank):
+    loan = book_loan(client, bank)
+    bank["responses"]["/cancel-loan"] = (200, {"responseCode": "409", "message": "Loan already confirmed"})
+    r = client.post(f"/loans/{loan.id}/cancel")
+    assert "Loan already confirmed" in r.text and "Disburse KO" in r.text
+    [loan] = loans()
+    assert loan.status == "BOOKED" and loan.cancelled_at is None
+
+
+def test_cancel_after_disburse_rejected(client, bank):
+    loan = book_loan(client, bank)
+    bank["responses"]["/confirm-loan"] = (200, {"responseCode": "200", "message": "Loan confirmed sucessfully"})
+    client.post(f"/loans/{loan.id}/disburse")
+    r = client.post(f"/loans/{loan.id}/cancel")
+    assert r.status_code == 400 and "already disbursed" in r.text
+    assert [path for path, _ in bank["requests"]] == ["/apply-loan", "/confirm-loan"]
+
+
+def test_cancel_disabled_without_bank_path(client, bank, monkeypatch):
+    loan = book_loan(client, bank)
+    monkeypatch.setattr(get_settings(), "bank_cancel_loan_path", "")
+    assert "BANK_CANCEL_LOAN_PATH is not set" in client.get(f"/loans?msisdn={MSISDN}").text
+    assert client.post(f"/loans/{loan.id}/cancel").status_code == 503

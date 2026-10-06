@@ -1,5 +1,5 @@
 """Banque simulée : répond aux appels sortants du mock Airtel (opt-in, Check Eligibility, Apply Loan,
-Confirm Loan).
+Confirm Loan, Cancel Loan).
 
 Les chemins sont provisoires, en attendant la spec de la banque. Les prêts accordés sont conservés dans
 un fichier JSON (BANK_MOCK_LOANS_FILE, voir store.py). Les refus métier sont renvoyés en HTTP 200 avec
@@ -160,11 +160,39 @@ async def confirm_loan(request: Request):
         return _reply("confirm_loan", body, {"responseCode": "400", "message": "loanAmount does not match"})
     if loan["status"] == "CONFIRMED":
         return _reply("confirm_loan", body, {"responseCode": "409", "message": "Loan already confirmed"})
+    if loan["status"] == "CANCELLED":
+        return _reply("confirm_loan", body, {"responseCode": "409", "message": "Loan is cancelled"})
 
     loan["status"] = "CONFIRMED"
     loan["externalTransactionId"] = external_transaction_id
     store.save()
     return _reply("confirm_loan", body, {"responseCode": "200", "message": "Loan confirmed sucessfully"})
+
+
+@app.post(API_PREFIX + "/cancel-loan")
+async def cancel_loan(request: Request):
+    """Airtel n'a pas pu verser le prêt sur le compte Mobile Money : le prêt est annulé."""
+    body, msisdn, early = await _start(request, "cancel_loan")
+    if early:
+        return early
+
+    transaction_id = str(body.get("transactionId") or "").strip()
+    loan = store.LOANS.get(transaction_id)
+
+    if not transaction_id:
+        return _reply("cancel_loan", body, {"responseCode": "400", "message": "transactionId is required"})
+    if loan is None or loan["msisdn"] != msisdn:
+        return _reply("cancel_loan", body, {"responseCode": "404", "message": "Loan not found"})
+    if loan["status"] == "CONFIRMED":
+        return _reply("cancel_loan", body, {"responseCode": "409", "message": "Loan already confirmed"})
+    if loan["status"] == "CANCELLED":
+        return _reply("cancel_loan", body, {"responseCode": "409", "message": "Loan already cancelled"})
+
+    loan["status"] = "CANCELLED"
+    store.save()
+    return _reply(
+        "cancel_loan", body, {"responseCode": "200", "message": "Loan Cancelled sucessfully", "msisdn": msisdn}
+    )
 
 
 async def _start(request: Request, flow: str) -> tuple[dict, str, Response | None]:

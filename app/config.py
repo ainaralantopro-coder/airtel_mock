@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     bank_check_eligibility_path: str = ""
     bank_apply_loan_path: str = ""
     bank_confirm_loan_path: str = ""
+    bank_cancel_loan_path: str = ""
     bank_timeout_seconds: float = 30.0
 
     @property
@@ -34,6 +35,10 @@ class Settings(BaseSettings):
     @property
     def bank_confirm_loan_url(self) -> str | None:
         return self._bank_url(self.bank_confirm_loan_path)
+
+    @property
+    def bank_cancel_loan_url(self) -> str | None:
+        return self._bank_url(self.bank_cancel_loan_path)
 
     def _bank_url(self, path: str) -> str | None:
         """URL complète d'un endpoint de la banque, ou None tant qu'il n'est pas configuré."""

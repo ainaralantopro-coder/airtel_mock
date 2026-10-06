@@ -90,6 +90,8 @@ tr:last-child td { border-bottom: 0; }
 .nowrap { white-space: nowrap; }
 .actions { white-space: nowrap; }
 .actions a { margin-right: 12px; }
+.actions form { display: inline-block; margin-right: 6px; }
+button.secondary { background: var(--muted); }
 
 .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; background: #eee; color: var(--muted); }
 .badge.ok { background: var(--ok-bg); color: var(--ok); }

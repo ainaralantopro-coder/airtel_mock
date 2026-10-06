@@ -1,4 +1,4 @@
-"""Écrans prêt : Borrow loan (simulation USSD), liste des prêts et décaissement (Confirm Loan)."""
+"""Écrans prêt : Borrow loan (simulation USSD), liste des prêts et décaissement (Confirm / Cancel Loan)."""
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -14,6 +14,7 @@ from app.bank_client import (
     response_json,
     send_apply_loan,
     send_check_eligibility,
+    send_cancel_loan,
     send_confirm_loan,
 )
 from app.config import get_settings
@@ -141,25 +142,11 @@ def loan_list(request: Request, msisdn: str = "", db: Session = Depends(get_db))
 
 @router.post("/{loan_pk}/disburse", response_class=HTMLResponse)
 def disburse_loan(request: Request, loan_pk: int, db: Session = Depends(get_db)):
-    """Confirme à la banque que le prêt a été décaissé sur le compte Mobile Money (Confirm Loan)."""
-    loan = db.get(Loan, loan_pk)
-    if loan is None:
-        context = _list_context(db, "")
-        context["error"] = "Loan not found."
-        return templates.TemplateResponse(request, "loans.html", context, status_code=404)
-
+    """Disburse OK : confirme à la banque que le prêt a été versé sur le compte Mobile Money (Confirm Loan)."""
     confirm_url = get_settings().bank_confirm_loan_url
-    error, status_code = None, 400
-    if confirm_url is None:
-        error, status_code = "BANK_CONFIRM_LOAN_PATH must be set in .env.", 503
-    elif loan.status != Loan.STATUS_BOOKED or not loan.loan_id:
-        error = "Only a booked loan can be disbursed."
-    elif loan.is_disbursed:
-        error = "This loan is already disbursed."
-    if error:
-        context = _list_context(db, loan.msisdn)
-        context["error"] = error
-        return templates.TemplateResponse(request, "loans.html", context, status_code=status_code)
+    loan, refusal = _pending_loan(request, db, loan_pk, confirm_url, "BANK_CONFIRM_LOAN_PATH")
+    if refusal:
+        return refusal
 
     external_transaction_id = new_transaction_id()
     amount = loan.loan_amount if loan.loan_amount is not None else Decimal(loan.requested_amount)
@@ -179,13 +166,62 @@ def disburse_loan(request: Request, loan_pk: int, db: Session = Depends(get_db))
     return templates.TemplateResponse(request, "loans.html", context)
 
 
+@router.post("/{loan_pk}/cancel", response_class=HTMLResponse)
+def cancel_loan(request: Request, loan_pk: int, db: Session = Depends(get_db)):
+    """Disburse KO : le versement a échoué, on demande à la banque d'annuler le prêt (Cancel Loan)."""
+    cancel_url = get_settings().bank_cancel_loan_url
+    loan, refusal = _pending_loan(request, db, loan_pk, cancel_url, "BANK_CANCEL_LOAN_PATH")
+    if refusal:
+        return refusal
+
+    call = send_cancel_loan(db, cancel_url, loan.msisdn, loan.transaction_id)
+    body = response_json(call)
+    context = _list_context(db, loan.msisdn)
+    if is_success(body):
+        loan.status = Loan.STATUS_CANCELLED
+        loan.cancelled_at = datetime.now(timezone.utc)
+        db.commit()
+        context["success"] = str(body.get("message") or "Loan cancelled.") + f" ({loan.transaction_id})"
+    else:
+        context["error"] = _bank_error(call, body)
+    return templates.TemplateResponse(request, "loans.html", context)
+
+
+def _pending_loan(
+    request: Request, db: Session, loan_pk: int, bank_url: str | None, path_setting: str
+) -> tuple[Loan | None, HTMLResponse | None]:
+    """Prêt accordé en attente de décaissement, ou la page d'erreur à renvoyer à la place."""
+    loan = db.get(Loan, loan_pk)
+    error, status_code = None, 400
+    if loan is None:
+        error, status_code = "Loan not found.", 404
+    elif bank_url is None:
+        error, status_code = f"{path_setting} must be set in .env.", 503
+    elif loan.status != Loan.STATUS_BOOKED or not loan.loan_id:
+        error = "Only a booked loan can be disbursed or cancelled."
+    elif loan.is_disbursed:
+        error = "This loan is already disbursed."
+    if error is None:
+        return loan, None
+
+    context = _list_context(db, loan.msisdn if loan else "")
+    context["error"] = error
+    return loan, templates.TemplateResponse(request, "loans.html", context, status_code=status_code)
+
+
 def _list_context(db: Session, msisdn: str) -> dict:
     loans = None
     if msisdn and is_valid_msisdn(msisdn):
         loans = db.scalars(
             select(Loan).where(Loan.msisdn == msisdn).order_by(Loan.created_at.desc(), Loan.id.desc())
         ).all()
-    return {"msisdn": msisdn, "loans": loans, "confirm_url": get_settings().bank_confirm_loan_url}
+    settings = get_settings()
+    return {
+        "msisdn": msisdn,
+        "loans": loans,
+        "confirm_url": settings.bank_confirm_loan_url,
+        "cancel_url": settings.bank_cancel_loan_url,
+    }
 
 
 def _save_loan(
