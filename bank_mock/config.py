@@ -17,7 +17,7 @@ class BankMockSettings(BaseSettings):
     min_amount: int = 5000
     max_amount: int = 100000
     eligible_amount: int = 50000
-    interest_rate: int = 2  # en %, appliqué aux frais
+    interest_rate: int = 9  # en %, appliqué aux frais
     tenure_days: int = 30
 
     # Issue imposée à Apply Loan Status (BOOKED, FAILED ou PENDING) ; vide = tirage aléatoire
