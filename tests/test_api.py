@@ -182,11 +182,11 @@ def test_customer_form_rejects_duplicate_and_invalid(client, customer):
     r = client.post("/customers/new", data={"msisdn": customer, "first_name": "A", "last_name": "B",
                                             "dob": "1990-01-01", "id_number": "1"})
     assert r.status_code == 400
-    assert "existe déjà" in r.text
+    assert "already exists" in r.text
 
     r = client.post("/customers/new", data={"msisdn": "12", "first_name": "", "dob": "x"})
     assert r.status_code == 400
-    assert "9 chiffres" in r.text
+    assert "9 digits" in r.text
 
 
 OPT_IN_OK = {"responseCode": "200", "message": "User opted in successfully", "msisdn": "997739692"}
@@ -215,7 +215,7 @@ def test_register_opt_in_success(client, customer, monkeypatch):
     mock_bank(monkeypatch, handler)
     r = client.post("/register", data={"msisdn": customer})
     assert r.status_code == 200
-    assert "opted-in." in r.text
+    assert "opted in." in r.text
     assert captured == {"url": "http://bank.test/opt-in", "body": b'{"msisdn": "997739692"}'}
     assert is_opted_in(customer) is True
     with SessionLocal() as db:
@@ -255,7 +255,7 @@ def test_register_invalid_bank_response(client, customer, monkeypatch, status, b
 
     mock_bank(monkeypatch, handler)
     r = client.post("/register", data={"msisdn": customer})
-    assert "Client non opted-in" in r.text
+    assert "Customer not opted in" in r.text
     assert is_opted_in(customer) is False
 
 
@@ -265,7 +265,7 @@ def test_register_bank_unreachable(client, customer, monkeypatch):
 
     mock_bank(monkeypatch, handler)
     r = client.post("/register", data={"msisdn": customer})
-    assert "chec de l" in r.text
+    assert "call failed" in r.text
     assert is_opted_in(customer) is False
     with SessionLocal() as db:
         assert db.scalar(select(CallSent.error)).startswith("ConnectError")

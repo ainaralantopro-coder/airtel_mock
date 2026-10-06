@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Clients · Airtel Money mock{% endblock %}
+{% block title %}Customers · Airtel Money mock{% endblock %}
 {% block content %}
-<h1>Clients</h1>
+<h1>Customers</h1>
 {% if request.query_params.get('created') %}
-<p class="alert success">Client {{ request.query_params.get('created') }} créé.</p>
+<p class="alert success">Customer {{ request.query_params.get('created') }} created.</p>
 {% endif %}
 {% if customers %}
 <div class="table-wrap">
 <table>
   <thead>
     <tr>
-      <th>MSISDN</th><th>Nom</th><th>Date de naissance</th><th>N° identité</th>
-      <th>Grade</th><th>Barré</th><th>PIN</th><th>Compte</th><th>Opted-in</th><th></th>
+      <th>MSISDN</th><th>Name</th><th>Date of birth</th><th>ID number</th>
+      <th>Grade</th><th>Barred</th><th>PIN</th><th>Account</th><th>Opted-in</th><th></th>
     </tr>
   </thead>
   <tbody>
@@ -22,10 +22,10 @@
       <td>{{ c.dob.strftime('%Y-%m-%d') }}</td>
       <td class="mono">{{ c.id_number }}</td>
       <td>{{ c.grade }}</td>
-      <td>{{ 'Oui' if c.is_barred else 'Non' }}</td>
-      <td>{{ 'Oui' if c.is_pin_set else 'Non' }}</td>
+      <td>{{ 'Yes' if c.is_barred else 'No' }}</td>
+      <td>{{ 'Yes' if c.is_pin_set else 'No' }}</td>
       <td>{{ c.account_status }}</td>
-      <td>{% if c.opted_in %}<span class="badge ok">Oui</span>{% else %}<span class="badge">Non</span>{% endif %}</td>
+      <td>{% if c.opted_in %}<span class="badge ok">Yes</span>{% else %}<span class="badge">No</span>{% endif %}</td>
       <td class="actions">
         <a href="/register?msisdn={{ c.msisdn }}">Register</a>
         <a href="/messages?msisdn={{ c.msisdn }}">Messages</a>
@@ -36,6 +36,6 @@
 </table>
 </div>
 {% else %}
-<p class="empty">Aucun client. <a href="/customers/new">Ajouter un client</a></p>
+<p class="empty">No customers. <a href="/customers/new">Add customer</a></p>
 {% endif %}
 {% endblock %}

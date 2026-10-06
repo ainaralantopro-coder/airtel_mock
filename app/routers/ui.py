@@ -19,14 +19,14 @@ router = APIRouter(include_in_schema=False)
 
 FIELD_LABELS = {
     "msisdn": "MSISDN",
-    "first_name": "Prénom",
-    "last_name": "Nom",
-    "dob": "Date de naissance",
-    "id_number": "Numéro d'identité",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "dob": "Date of birth",
+    "id_number": "ID number",
     "grade": "Grade",
-    "account_status": "Statut du compte",
-    "nationality": "Nationalité",
-    "registration_status": "Statut d'enregistrement",
+    "account_status": "Account status",
+    "nationality": "Nationality",
+    "registration_status": "Registration status",
 }
 
 
@@ -54,7 +54,7 @@ async def customer_create(request: Request, db: Session = Depends(get_db)):
         errors = [_format_form_error(e) for e in exc.errors()]
     else:
         if db.scalar(select(Customer.id).where(Customer.msisdn == customer_in.msisdn)):
-            errors = [f"Un client avec le MSISDN {customer_in.msisdn} existe déjà."]
+            errors = [f"A customer with MSISDN {customer_in.msisdn} already exists."]
 
     if errors:
         context = {"values": data, "errors": errors}
@@ -82,16 +82,16 @@ async def register_submit(request: Request, db: Session = Depends(get_db)):
 
     if opt_in_url is None:
         context["error"] = (
-            "Impossible d'envoyer la demande : BANK_BASE_URL et BANK_OPT_IN_PATH "
-            "doivent être renseignés dans le .env."
+            "Cannot send the request: BANK_BASE_URL and BANK_OPT_IN_PATH "
+            "must be set in .env."
         )
         return templates.TemplateResponse(request, "register.html", context, status_code=503)
     if not is_valid_msisdn(msisdn):
-        context["error"] = "Le MSISDN doit contenir exactement 9 chiffres."
+        context["error"] = "The MSISDN must contain exactly 9 digits."
         return templates.TemplateResponse(request, "register.html", context, status_code=400)
     customer = db.scalar(select(Customer).where(Customer.msisdn == msisdn))
     if customer is None:
-        context["error"] = f"Aucun client avec le MSISDN {msisdn}. Créez-le d'abord."
+        context["error"] = f"No customer with MSISDN {msisdn}. Create it first."
         return templates.TemplateResponse(request, "register.html", context, status_code=404)
 
     call = send_opt_in(db, opt_in_url, msisdn)
@@ -110,7 +110,7 @@ def message_list(request: Request, msisdn: str = "", db: Session = Depends(get_d
     context: dict = {"msisdn": msisdn, "messages": None}
     if msisdn:
         if not is_valid_msisdn(msisdn):
-            context["error"] = "Le MSISDN doit contenir exactement 9 chiffres."
+            context["error"] = "The MSISDN must contain exactly 9 digits."
         else:
             context["messages"] = db.scalars(
                 select(MessageSent)
@@ -124,9 +124,9 @@ def _format_form_error(error: dict) -> str:
     field = str(error["loc"][0]) if error.get("loc") else ""
     label = FIELD_LABELS.get(field, field)
     if field == "msisdn":
-        return f"{label} : doit contenir exactement 9 chiffres."
+        return f"{label}: must contain exactly 9 digits."
     if error["type"] in ("missing", "string_too_short"):
-        return f"{label} : champ obligatoire."
+        return f"{label}: required field."
     if field == "dob":
-        return f"{label} : date invalide."
-    return f"{label} : {error['msg']}"
+        return f"{label}: invalid date."
+    return f"{label}: {error['msg']}"

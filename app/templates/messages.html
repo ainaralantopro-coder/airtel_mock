@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Messages · Airtel Money mock{% endblock %}
 {% block content %}
-<h1>Messages envoyés</h1>
+<h1>Sent messages</h1>
 <form method="get" class="inline-form">
-  <input name="msisdn" value="{{ msisdn }}" required pattern="\d{9}" maxlength="9" inputmode="numeric" placeholder="MSISDN (9 chiffres)">
-  <button type="submit">Rechercher</button>
+  <input name="msisdn" value="{{ msisdn }}" required pattern="\d{9}" maxlength="9" inputmode="numeric" placeholder="MSISDN (9 digits)">
+  <button type="submit">Search</button>
 </form>
 
 {% if error %}<p class="alert error">{{ error }}</p>{% endif %}
@@ -27,7 +27,7 @@
   </table>
   </div>
   {% else %}
-  <p class="empty">Aucun message pour {{ msisdn }}.</p>
+  <p class="empty">No messages for {{ msisdn }}.</p>
   {% endif %}
 {% endif %}
 {% endblock %}

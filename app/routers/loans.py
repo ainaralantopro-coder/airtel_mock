@@ -23,7 +23,7 @@ from app.web import templates
 
 router = APIRouter(prefix="/loans", include_in_schema=False)
 
-INVALID_MSISDN = "Le MSISDN doit contenir exactement 9 chiffres."
+INVALID_MSISDN = "The MSISDN must contain exactly 9 digits."
 DUE_DATE_FORMATS = (
     "%Y-%m-%d %H:%M:%S.%f",
     "%Y-%m-%d %H:%M:%S",
@@ -57,8 +57,8 @@ async def check_eligibility(request: Request, db: Session = Depends(get_db)):
 
     if context["eligibility_url"] is None or context["apply_url"] is None:
         context["error"] = (
-            "BANK_BASE_URL, BANK_CHECK_ELIGIBILITY_PATH et BANK_APPLY_LOAN_PATH "
-            "doivent être renseignés dans le .env."
+            "BANK_BASE_URL, BANK_CHECK_ELIGIBILITY_PATH and BANK_APPLY_LOAN_PATH "
+            "must be set in .env."
         )
         return templates.TemplateResponse(request, "borrow.html", context, status_code=503)
     if not is_valid_msisdn(msisdn):
@@ -79,9 +79,9 @@ async def check_eligibility(request: Request, db: Session = Depends(get_db)):
         "fees_amount": _to_decimal(data.get("feesAmount")),
     }
     if offer["min_amount"] is None or offer["eligible_amount"] is None:
-        context["error"] = "Réponse de la banque incomplète : minAmount ou eligibleAmount manquant."
+        context["error"] = "Incomplete bank response: minAmount or eligibleAmount is missing."
     elif offer["min_amount"] > offer["eligible_amount"]:
-        context["error"] = "Le montant éligible est inférieur au montant minimum : aucun prêt possible."
+        context["error"] = "The eligible amount is below the minimum amount: no loan possible."
     else:
         context["offer"] = offer
         context["amount"] = _plain(offer["min_amount"])
@@ -103,18 +103,18 @@ async def apply_loan(request: Request, db: Session = Depends(get_db)):
 
     if context["apply_url"] is None:
         context.pop("offer")
-        context["error"] = "BANK_APPLY_LOAN_PATH doit être renseigné dans le .env."
+        context["error"] = "BANK_APPLY_LOAN_PATH must be set in .env."
         return templates.TemplateResponse(request, "borrow.html", context, status_code=503)
     if not is_valid_msisdn(msisdn) or offer["min_amount"] is None or offer["eligible_amount"] is None:
         context.pop("offer")
-        context["error"] = "Demande invalide : refaites la vérification d'éligibilité."
+        context["error"] = "Invalid request: run the eligibility check again."
         return templates.TemplateResponse(request, "borrow.html", context, status_code=400)
 
     amount = _to_int(amount_text)
     if amount is None or not offer["min_amount"] <= amount <= offer["eligible_amount"]:
         context["amount_error"] = (
-            f"Le montant doit être un nombre entier entre {_plain(offer['min_amount'])} "
-            f"et {_plain(offer['eligible_amount'])}."
+            f"The amount must be a whole number between {_plain(offer['min_amount'])} "
+            f"and {_plain(offer['eligible_amount'])}."
         )
         return templates.TemplateResponse(request, "borrow.html", context, status_code=400)
 
@@ -174,10 +174,10 @@ def _save_loan(
 
 def _bank_error(call: CallSent, body: dict | None) -> str:
     if call.error:
-        return f"Échec de l'appel à la banque : {call.error}"
+        return f"Bank call failed: {call.error}"
     if body is None:
-        return f"Réponse illisible de la banque (HTTP {call.response_status})."
-    return str(body.get("message") or f"Réponse de la banque : responseCode {body.get('responseCode')}")
+        return f"Unreadable bank response (HTTP {call.response_status})."
+    return str(body.get("message") or f"Bank response: responseCode {body.get('responseCode')}")
 
 
 def _to_decimal(value) -> Decimal | None:

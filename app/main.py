@@ -17,7 +17,7 @@ from app.routers import auth, loans, notify, ui, users
 
 app = FastAPI(
     title="Airtel Money mock",
-    description="Mock de la plateforme Mobile Money pour l'intégration avec la banque partenaire.",
+    description="Mock of the Mobile Money platform for integration with the partner bank.",
     version="0.1.0",
 )
 

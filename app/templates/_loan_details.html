@@ -1,10 +1,10 @@
 <dl class="details">
   <dt>Transaction ID</dt><dd class="mono">{{ loan.transaction_id }}</dd>
   <dt>Loan ID</dt><dd class="mono">{{ loan.loan_id or '' }}</dd>
-  <dt>Montant</dt><dd>{{ loan.loan_amount | ariary }}</dd>
-  <dt>Frais</dt><dd>{{ loan.loan_fees | ariary }}</dd>
-  <dt>Restant dû</dt><dd>{{ loan.outstanding_amount | ariary }}</dd>
-  <dt>Échéance</dt><dd>{{ loan.due_date.strftime('%Y-%m-%d %H:%M:%S') if loan.due_date else '' }}</dd>
-  <dt>Durée</dt><dd>{{ loan.tenure_name or '' }}{% if loan.tenure_id %} ({{ loan.tenure_id }}){% endif %}</dd>
-  <dt>Taux d'intérêt</dt><dd>{{ loan.interest_rate or '' }}</dd>
+  <dt>Amount</dt><dd>{{ loan.loan_amount | ariary }}</dd>
+  <dt>Fees</dt><dd>{{ loan.loan_fees | ariary }}</dd>
+  <dt>Outstanding</dt><dd>{{ loan.outstanding_amount | ariary }}</dd>
+  <dt>Due date</dt><dd>{{ loan.due_date.strftime('%Y-%m-%d %H:%M:%S') if loan.due_date else '' }}</dd>
+  <dt>Tenure</dt><dd>{{ loan.tenure_name or '' }}{% if loan.tenure_id %} ({{ loan.tenure_id }}){% endif %}</dd>
+  <dt>Interest rate</dt><dd>{{ loan.interest_rate or '' }}</dd>
 </dl>

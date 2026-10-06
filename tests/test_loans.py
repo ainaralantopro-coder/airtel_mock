@@ -96,10 +96,10 @@ def test_eligibility_works_without_customer_or_opt_in(client, bank):
     "response, expected",
     [
         ((200, {"responseCode": "400", "message": "Customer not eligible"}), "Customer not eligible"),
-        ((500, "boom"), "Réponse illisible"),
-        (httpx.ConnectError("refused"), "chec de l&#39;appel"),
-        ((200, {"responseCode": "200", "data": {"minAmount": "", "eligibleAmount": "1"}}), "incomplète"),
-        ((200, {"responseCode": "200", "data": {"minAmount": "5000", "eligibleAmount": "1000"}}), "aucun prêt"),
+        ((500, "boom"), "Unreadable bank response"),
+        (httpx.ConnectError("refused"), "Bank call failed"),
+        ((200, {"responseCode": "200", "data": {"minAmount": "", "eligibleAmount": "1"}}), "Incomplete bank response"),
+        ((200, {"responseCode": "200", "data": {"minAmount": "5000", "eligibleAmount": "1000"}}), "no loan possible"),
     ],
 )
 def test_eligibility_failure_hides_amount_field(client, bank, response, expected):
@@ -157,14 +157,14 @@ def test_apply_loan_bank_unreachable_is_saved(client, bank):
     client.post("/loans/borrow/apply", data={**OFFER_FORM, "amount": "20000"})
     [loan] = loans()
     assert loan.status == "FAILED"
-    assert loan.response_message.startswith("Échec de l'appel")
+    assert loan.response_message.startswith("Bank call failed")
 
 
 @pytest.mark.parametrize("amount", ["4999", "50001", "abc", "10000.5", ""])
 def test_apply_loan_amount_out_of_range(client, bank, amount):
     r = client.post("/loans/borrow/apply", data={**OFFER_FORM, "amount": amount})
     assert r.status_code == 400
-    assert "entre 5000 et 50000" in r.text
+    assert "between 5000 and 50000" in r.text
     assert bank["requests"] == [] and loans() == []
 
 
@@ -191,7 +191,7 @@ def test_loan_list_filters_by_msisdn(client, bank):
     r = client.get(f"/loans?msisdn={MSISDN}")
     assert "LN0001" in r.text and "Ar 20 000" in r.text
     assert "Ar 6 000" not in r.text
-    assert "Aucun prêt" in client.get("/loans?msisdn=222222222").text
+    assert "No loans" in client.get("/loans?msisdn=222222222").text
     assert client.get("/loans").status_code == 200
 
 

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Ajouter un client · Airtel Money mock{% endblock %}
+{% block title %}Add customer · Airtel Money mock{% endblock %}
 {% block content %}
-<h1>Ajouter un client</h1>
+<h1>Add customer</h1>
 {% if errors %}
 <div class="alert error">
   <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
@@ -11,36 +11,36 @@
   <label>MSISDN
     <input name="msisdn" value="{{ values.msisdn or '' }}" required pattern="\d{9}" maxlength="9" inputmode="numeric" placeholder="997739692">
   </label>
-  <label>Prénom
+  <label>First name
     <input name="first_name" value="{{ values.first_name or '' }}" required>
   </label>
-  <label>Nom
+  <label>Last name
     <input name="last_name" value="{{ values.last_name or '' }}" required>
   </label>
-  <label>Date de naissance
+  <label>Date of birth
     <input type="date" name="dob" value="{{ values.dob or '' }}" required>
   </label>
-  <label>Numéro d'identité
+  <label>ID number
     <input name="id_number" value="{{ values.id_number or '' }}" required>
   </label>
-  <label>Nationalité
+  <label>Nationality
     <input name="nationality" value="{{ values.nationality or 'MG' }}" required maxlength="5">
   </label>
   <label>Grade
     <input name="grade" value="{{ values.grade or 'SUBS' }}" required>
   </label>
-  <label>Statut du compte
+  <label>Account status
     <input name="account_status" value="{{ values.account_status or 'Y' }}" required maxlength="5">
   </label>
-  <label>Statut d'enregistrement
+  <label>Registration status
     <input name="registration_status" value="{{ values.registration_status or 'SUBS' }}" required>
   </label>
   <fieldset class="checks">
-    <label class="check"><input type="checkbox" name="is_pin_set" {% if values.get('is_pin_set', True) %}checked{% endif %}> PIN défini</label>
-    <label class="check"><input type="checkbox" name="is_barred" {% if values.get('is_barred') %}checked{% endif %}> Compte barré</label>
+    <label class="check"><input type="checkbox" name="is_pin_set" {% if values.get('is_pin_set', True) %}checked{% endif %}> PIN set</label>
+    <label class="check"><input type="checkbox" name="is_barred" {% if values.get('is_barred') %}checked{% endif %}> Barred account</label>
   </fieldset>
   <div class="form-actions">
-    <button type="submit">Créer le client</button>
+    <button type="submit">Create customer</button>
   </div>
 </form>
 {% endblock %}

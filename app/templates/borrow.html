@@ -4,14 +4,14 @@
 <h1>Borrow loan</h1>
 {% if not eligibility_url or not apply_url %}
 <p class="alert warning">
-  Endpoints non configurés : renseignez BANK_CHECK_ELIGIBILITY_PATH et BANK_APPLY_LOAN_PATH dans le .env.
+  Endpoints not configured: set BANK_CHECK_ELIGIBILITY_PATH and BANK_APPLY_LOAN_PATH in .env.
 </p>
 {% endif %}
 
 <form method="post" action="/loans/borrow/eligibility" class="inline-form">
   <input name="msisdn" value="{{ msisdn }}" required pattern="\d{9}" maxlength="9" inputmode="numeric"
-         placeholder="MSISDN (9 chiffres)" {% if not eligibility_url or not apply_url %}disabled{% endif %}>
-  <button type="submit" {% if not eligibility_url or not apply_url %}disabled{% endif %}>Vérifier l'éligibilité</button>
+         placeholder="MSISDN (9 digits)" {% if not eligibility_url or not apply_url %}disabled{% endif %}>
+  <button type="submit" {% if not eligibility_url or not apply_url %}disabled{% endif %}>Check eligibility</button>
 </form>
 
 {% if error %}<p class="alert error">{{ error }}</p>{% endif %}
@@ -20,7 +20,7 @@
 <section class="ussd">
   <p>Borrow up to <strong>{{ offer.max_amount | ariary }}</strong></p>
   <p>Eligible amount: <strong>{{ offer.eligible_amount | ariary }}</strong></p>
-  {% if offer.fees_amount is not none %}<p class="hint">Frais : {{ offer.fees_amount | ariary }}</p>{% endif %}
+  {% if offer.fees_amount is not none %}<p class="hint">Fees: {{ offer.fees_amount | ariary }}</p>{% endif %}
 
   <form method="post" action="/loans/borrow/apply">
     <input type="hidden" name="msisdn" value="{{ msisdn }}">
@@ -32,10 +32,10 @@
       <span class="inline-form">
         <input type="number" name="amount" value="{{ amount }}" required step="1"
                min="{{ offer.min_amount }}" max="{{ offer.eligible_amount }}">
-        <button type="submit">Emprunter</button>
+        <button type="submit">Borrow</button>
       </span>
     </label>
-    <p class="hint">Entre {{ offer.min_amount | ariary }} et {{ offer.eligible_amount | ariary }}</p>
+    <p class="hint">Between {{ offer.min_amount | ariary }} and {{ offer.eligible_amount | ariary }}</p>
     {% if amount_error %}<p class="alert error">{{ amount_error }}</p>{% endif %}
   </form>
 </section>
@@ -43,7 +43,7 @@
 
 {% if loan and loan.status == 'BOOKED' %}
 <section class="result">
-  <p class="alert success">{{ loan.response_message or 'Prêt accordé.' }}</p>
+  <p class="alert success">{{ loan.response_message or 'Loan booked.' }}</p>
   {% include "_loan_details.html" %}
 </section>
 {% endif %}
