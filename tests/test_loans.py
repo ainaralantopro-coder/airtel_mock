@@ -199,3 +199,68 @@ def test_format_ariary():
     assert format_ariary(50000) == "Ar 50 000"
     assert format_ariary(Decimal("1234.50")) == "Ar 1 234.50"
     assert format_ariary(None) == ""
+
+
+# --- Disburse (Confirm Loan) -------------------------------------------------
+
+def book_loan(client, bank) -> Loan:
+    bank["responses"]["/apply-loan"] = (200, BOOKED)
+    client.post("/loans/borrow/apply", data={**OFFER_FORM, "amount": "20000"})
+    [loan] = loans()
+    return loan
+
+
+def test_disburse_button_only_on_booked_loans(client, bank):
+    book_loan(client, bank)
+    bank["responses"]["/apply-loan"] = (200, {"responseCode": "409", "message": "Customer has an active loan"})
+    client.post("/loans/borrow/apply", data={**OFFER_FORM, "amount": "20000"})
+    assert client.get(f"/loans?msisdn={MSISDN}").text.count("Disburse OK") == 1
+
+
+def test_disburse_confirms_loan(client, bank):
+    loan = book_loan(client, bank)
+    bank["responses"]["/confirm-loan"] = (200, {"responseCode": "200", "message": "Loan confirmed sucessfully"})
+    r = client.post(f"/loans/{loan.id}/disburse")
+    assert r.status_code == 200
+    assert "Loan confirmed sucessfully" in r.text and "Disburse OK" not in r.text
+
+    path, payload = bank["requests"][-1]
+    assert path == "/confirm-loan"
+    assert {k: payload[k] for k in ("msisdn", "transactionId", "loanAmount", "loanId")} == {
+        "msisdn": MSISDN, "transactionId": loan.transaction_id, "loanAmount": 20000, "loanId": "LN0001"
+    }
+    assert re.fullmatch(r"APC\d{22}", payload["externalTransactionId"])
+
+    [loan] = loans()
+    assert loan.is_disbursed is True and loan.disbursed_at is not None
+    assert loan.external_transaction_id == payload["externalTransactionId"]
+
+    r = client.post(f"/loans/{loan.id}/disburse")
+    assert r.status_code == 400 and "already disbursed" in r.text
+    assert len(bank["requests"]) == 2
+
+
+def test_disburse_refused_by_bank(client, bank):
+    loan = book_loan(client, bank)
+    bank["responses"]["/confirm-loan"] = (200, {"responseCode": "404", "message": "Loan not found"})
+    r = client.post(f"/loans/{loan.id}/disburse")
+    assert "Loan not found" in r.text and "Disburse OK" in r.text
+    [loan] = loans()
+    assert loan.is_disbursed is False and loan.external_transaction_id is None
+
+
+def test_disburse_failed_loan_rejected(client, bank):
+    bank["responses"]["/apply-loan"] = (200, {"responseCode": "409", "message": "Customer has an active loan"})
+    client.post("/loans/borrow/apply", data={**OFFER_FORM, "amount": "20000"})
+    [loan] = loans()
+    r = client.post(f"/loans/{loan.id}/disburse")
+    assert r.status_code == 400 and "Only a booked loan" in r.text
+    assert client.post("/loans/999999/disburse").status_code == 404
+
+
+def test_disburse_disabled_without_bank_path(client, bank, monkeypatch):
+    loan = book_loan(client, bank)
+    monkeypatch.setattr(get_settings(), "bank_confirm_loan_path", "")
+    assert "BANK_CONFIRM_LOAN_PATH is not set" in client.get(f"/loans?msisdn={MSISDN}").text
+    assert client.post(f"/loans/{loan.id}/disburse").status_code == 503
+    assert len(bank["requests"]) == 1

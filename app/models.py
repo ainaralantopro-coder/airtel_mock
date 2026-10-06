@@ -80,7 +80,10 @@ class Loan(Base):
     tenure_name: Mapped[str | None] = mapped_column(String(100))
     interest_rate: Mapped[str | None] = mapped_column(String(20))
 
+    # Décaissement confirmé à la banque (Confirm Loan)
     is_disbursed: Mapped[bool] = mapped_column(Boolean, default=False)
+    external_transaction_id: Mapped[str | None] = mapped_column(String(50))
+    disbursed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

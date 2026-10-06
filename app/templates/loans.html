@@ -8,6 +8,7 @@
 </form>
 
 {% if error %}<p class="alert error">{{ error }}</p>{% endif %}
+{% if success %}<p class="alert success">{{ success }}</p>{% endif %}
 
 {% if loans is not none %}
   {% if loans %}
@@ -17,7 +18,7 @@
       <tr>
         <th>Date</th><th>Status</th><th>Transaction ID</th><th>Loan ID</th>
         <th>Requested</th><th>Amount</th><th>Fees (eligibility)</th><th>Loan fees</th>
-        <th>Outstanding</th><th>Due date</th><th>Tenure</th><th>Rate</th><th>Disbursed</th><th>Message</th>
+        <th>Outstanding</th><th>Due date</th><th>Tenure</th><th>Rate</th><th>Disbursed</th><th>Message</th><th></th>
       </tr>
     </thead>
     <tbody>
@@ -35,8 +36,15 @@
         <td class="nowrap">{{ l.due_date.strftime('%Y-%m-%d %H:%M:%S') if l.due_date else '' }}</td>
         <td>{{ l.tenure_name or '' }}{% if l.tenure_id %} ({{ l.tenure_id }}){% endif %}</td>
         <td>{{ l.interest_rate or '' }}</td>
-        <td>{{ 'Yes' if l.is_disbursed else 'No' }}</td>
+        <td class="nowrap">{% if l.is_disbursed %}Yes{% if l.external_transaction_id %}<br><span class="mono hint">{{ l.external_transaction_id }}</span>{% endif %}{% else %}No{% endif %}</td>
         <td>{{ l.response_message or '' }}</td>
+        <td class="actions">
+          {% if l.status == 'BOOKED' and l.loan_id and not l.is_disbursed %}
+          <form method="post" action="/loans/{{ l.id }}/disburse">
+            <button type="submit" {% if not confirm_url %}disabled title="BANK_CONFIRM_LOAN_PATH is not set"{% endif %}>Disburse OK</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>

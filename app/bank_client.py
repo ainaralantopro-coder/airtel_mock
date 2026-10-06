@@ -27,6 +27,20 @@ def send_apply_loan(db: Session, url: str, msisdn: str, loan_amount: int, transa
     return _post_json(db, flow="apply_loan", url=url, msisdn=msisdn, payload=payload)
 
 
+def send_confirm_loan(
+    db: Session, url: str, msisdn: str, transaction_id: str, loan_amount: int, loan_id: str,
+    external_transaction_id: str,
+) -> CallSent:
+    payload = {
+        "msisdn": msisdn,
+        "transactionId": transaction_id,
+        "loanAmount": loan_amount,
+        "loanId": loan_id,
+        "externalTransactionId": external_transaction_id,
+    }
+    return _post_json(db, flow="confirm_loan", url=url, msisdn=msisdn, payload=payload)
+
+
 def new_transaction_id() -> str:
     """Identifiant de transaction côté Airtel : APC + horodatage + 8 chiffres aléatoires."""
     return f"APC{datetime.now():%Y%m%d%H%M%S}{secrets.randbelow(10**8):08d}"

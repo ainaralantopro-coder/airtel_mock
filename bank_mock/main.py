@@ -1,4 +1,5 @@
-"""Banque simulée : répond aux appels sortants du mock Airtel (opt-in, Check Eligibility, Apply Loan).
+"""Banque simulée : répond aux appels sortants du mock Airtel (opt-in, Check Eligibility, Apply Loan,
+Confirm Loan).
 
 Les chemins sont provisoires, en attendant la spec de la banque. L'état (prêts accordés) est en mémoire
 et repart de zéro à chaque redémarrage. Les refus métier sont renvoyés en HTTP 200 avec un responseCode
@@ -125,8 +126,36 @@ async def apply_loan(request: Request):
         "tenureName": f"{settings.tenure_days} days",
         "interestRate": str(settings.interest_rate),
     }
-    LOANS[transaction_id] = {"msisdn": msisdn, **loan}
+    LOANS[transaction_id] = {"msisdn": msisdn, **loan, "status": "BOOKED", "externalTransactionId": None}
     return _reply("apply_loan", body, {"responseCode": "200", "message": "Loan booked sucessfully", "data": loan})
+
+
+@app.post(API_PREFIX + "/confirm-loan")
+async def confirm_loan(request: Request):
+    """Airtel confirme que le prêt a été décaissé sur le compte Mobile Money du client."""
+    body, msisdn, early = await _start(request, "confirm_loan")
+    if early:
+        return early
+
+    transaction_id = str(body.get("transactionId") or "").strip()
+    external_transaction_id = str(body.get("externalTransactionId") or "").strip()
+    loan = LOANS.get(transaction_id)
+
+    if not transaction_id or not external_transaction_id:
+        message = "transactionId and externalTransactionId are required"
+        return _reply("confirm_loan", body, {"responseCode": "400", "message": message})
+    if loan is None or loan["msisdn"] != msisdn:
+        return _reply("confirm_loan", body, {"responseCode": "404", "message": "Loan not found"})
+    if str(body.get("loanId") or "").strip() != loan["loanId"]:
+        return _reply("confirm_loan", body, {"responseCode": "400", "message": "loanId does not match"})
+    if _to_int(body.get("loanAmount")) != loan["loanAmount"]:
+        return _reply("confirm_loan", body, {"responseCode": "400", "message": "loanAmount does not match"})
+    if loan["status"] == "CONFIRMED":
+        return _reply("confirm_loan", body, {"responseCode": "409", "message": "Loan already confirmed"})
+
+    loan["status"] = "CONFIRMED"
+    loan["externalTransactionId"] = external_transaction_id
+    return _reply("confirm_loan", body, {"responseCode": "200", "message": "Loan confirmed sucessfully"})
 
 
 async def _start(request: Request, flow: str) -> tuple[dict, str, Response | None]:

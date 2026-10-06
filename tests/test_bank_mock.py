@@ -144,6 +144,39 @@ def test_apply_loan_duplicate_transaction(bank):
     assert apply(bank)["message"] == "Duplicate transactionId"
 
 
+# --- Confirm Loan -----------------------------------------------------------
+
+def confirm(bank, **overrides):
+    loan = bank_main.LOANS["APC1"]
+    body = {"msisdn": OK, "transactionId": "APC1", "loanAmount": loan["loanAmount"], "loanId": loan["loanId"],
+            "externalTransactionId": "APC9", **overrides}
+    return bank.post("/api/v1/confirm-loan", json=body).json()
+
+
+def test_confirm_loan_success(bank):
+    apply(bank)
+    assert confirm(bank) == {"responseCode": "200", "message": "Loan confirmed sucessfully"}
+    [loan] = bank.get("/api/v1/loans").json()
+    assert (loan["status"], loan["externalTransactionId"]) == ("CONFIRMED", "APC9")
+    assert confirm(bank) == {"responseCode": "409", "message": "Loan already confirmed"}
+
+
+@pytest.mark.parametrize(
+    "overrides, code, message",
+    [
+        ({"transactionId": "UNKNOWN"}, "404", "Loan not found"),
+        ({"msisdn": "997739698"}, "404", "Loan not found"),
+        ({"loanId": "123"}, "400", "loanId does not match"),
+        ({"loanAmount": 1}, "400", "loanAmount does not match"),
+        ({"externalTransactionId": ""}, "400", "transactionId and externalTransactionId are required"),
+    ],
+)
+def test_confirm_loan_refused(bank, overrides, code, message):
+    apply(bank)
+    assert confirm(bank, **overrides) == {"responseCode": code, "message": message}
+    assert bank_main.LOANS["APC1"]["status"] == "BOOKED"
+
+
 def test_scenarios_listed(bank):
     assert set(bank.get("/api/v1/scenarios").json()["scenarios"]) == {"1", "2", "3", "4", "5"}
 
@@ -157,6 +190,7 @@ def airtel_to_bank(bank, monkeypatch):
     monkeypatch.setattr(settings, "bank_opt_in_path", "/api/v1/opt-in")
     monkeypatch.setattr(settings, "bank_check_eligibility_path", "/api/v1/check-eligibility")
     monkeypatch.setattr(settings, "bank_apply_loan_path", "/api/v1/apply-loan")
+    monkeypatch.setattr(settings, "bank_confirm_loan_path", "/api/v1/confirm-loan")
     monkeypatch.setattr(bank_client.httpx, "Client", lambda **kw: TestClient(bank_main.app))
 
 
@@ -177,3 +211,9 @@ def test_end_to_end_opt_in_and_loan(client, customer, airtel_to_bank):
         loan = db.scalar(select(Loan))
     assert loan.status == "BOOKED"
     assert bank_main.LOANS[loan.transaction_id]["loanId"] == loan.loan_id
+
+    r = client.post(f"/loans/{loan.id}/disburse")
+    assert "Loan confirmed sucessfully" in r.text
+    assert bank_main.LOANS[loan.transaction_id]["status"] == "CONFIRMED"
+    with SessionLocal() as db:
+        assert db.get(Loan, loan.id).is_disbursed is True
