@@ -9,7 +9,7 @@
 {% endif %}
 <form method="post" class="form-grid">
   <label>MSISDN
-    <input name="msisdn" value="{{ values.msisdn or '' }}" required pattern="\d{9}" maxlength="9" inputmode="numeric" placeholder="997739692">
+    <input name="msisdn" value="{{ values.msisdn or '' }}" required maxlength="50" placeholder="997739692">
   </label>
   <label>First name
     <input name="first_name" value="{{ values.first_name or '' }}" required>

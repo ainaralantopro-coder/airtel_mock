@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.errors import ApiError, users_status
 from app.models import Customer
-from app.schemas import is_valid_msisdn
 from app.security import require_token
 
 router = APIRouter(prefix="/standard/v2", tags=["users"], dependencies=[Depends(require_token)])
@@ -19,8 +18,6 @@ def format_dob(customer: Customer) -> str:
 
 @router.get("/users/{msisdn}")
 def get_user(msisdn: str, db: Session = Depends(get_db)):
-    if not is_valid_msisdn(msisdn):
-        raise ApiError(400, "msisdn must be 9 digits")
     customer = db.scalar(select(Customer).where(Customer.msisdn == msisdn))
     if customer is None:
         raise ApiError(404, "User not found")

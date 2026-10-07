@@ -263,8 +263,8 @@ async def _start(request: Request, flow: str) -> tuple[dict, str, Response | Non
         return {}, "", _reply(flow, None, {"responseCode": "400", "message": "Malformed request body"}, 400)
 
     msisdn = str(body.get("msisdn") or "").strip()
-    if not (len(msisdn) == 9 and msisdn.isdigit()):
-        return body, msisdn, _reply(flow, body, {"responseCode": "400", "message": "msisdn must be 9 digits"})
+    if not msisdn:
+        return body, msisdn, _reply(flow, body, {"responseCode": "400", "message": "msisdn is required"})
 
     scenario = scenarios.scenario_for(msisdn)
     if scenario == scenarios.SLOW:

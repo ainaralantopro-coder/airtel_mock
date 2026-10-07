@@ -53,10 +53,15 @@ def test_opt_in_refused(bank):
     assert bank.post("/api/v1/opt-in", json={"msisdn": REFUSED}).json()["responseCode"] == "400"
 
 
-@pytest.mark.parametrize("body", [{"msisdn": "12345"}, {}, {"msisdn": None}])
-def test_invalid_msisdn(bank, body):
+@pytest.mark.parametrize("body", [{"msisdn": ""}, {}, {"msisdn": None}, {"msisdn": "  "}])
+def test_missing_msisdn(bank, body):
     r = bank.post("/api/v1/opt-in", json=body)
-    assert r.json() == {"responseCode": "400", "message": "msisdn must be 9 digits"}
+    assert r.json() == {"responseCode": "400", "message": "msisdn is required"}
+
+
+@pytest.mark.parametrize("msisdn", ["12345", "+261340000000", "abc-0"])
+def test_free_msisdn(bank, msisdn):
+    assert bank.post("/api/v1/opt-in", json={"msisdn": msisdn}).json()["responseCode"] == "200"
 
 
 def test_malformed_body(bank):
@@ -86,6 +91,7 @@ def test_slow_scenario_waits_then_answers(bank, monkeypatch):
 # --- Check Eligibility ------------------------------------------------------
 
 def test_eligibility_success(bank):
+    rate = get_bank_settings().interest_rate
     r = bank.post("/api/v1/check-eligibility", json={"msisdn": OK, "loanAmount": None})
     assert r.json() == {
         "responseCode": "200",
@@ -95,7 +101,7 @@ def test_eligibility_success(bank):
             "minAmount": "5000",
             "maxAmount": "100000",
             "eligibleAmount": "50000",
-            "feesAmount": "1000",
+            "feesAmount": str(50000 * rate // 100),
         },
     }
 
@@ -116,10 +122,12 @@ def test_apply_loan_success(bank):
     body = apply(bank, amount="20000")
     assert body["responseCode"] == "200" and body["message"] == "Loan booked sucessfully"
     data = body["data"]
+    rate = get_bank_settings().interest_rate
+    fees = 20000 * rate // 100
     assert (data["transactionId"], data["loanAmount"], data["loanfees"], data["outstandingAmount"]) == (
-        "APC1", 20000, "400", "20400"
+        "APC1", 20000, str(fees), str(20000 + fees)
     )
-    assert (data["tenureId"], data["tenureName"], data["interestRate"]) == ("30", "30 days", "2")
+    assert (data["tenureId"], data["tenureName"], data["interestRate"]) == ("30", "30 days", str(rate))
     assert len(data["loanId"]) == 17 and data["loanId"].isdigit()
     expected_due = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d") + " 23:59:59"
     assert data["dueDate"] == expected_due

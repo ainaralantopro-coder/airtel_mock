@@ -7,7 +7,7 @@
   {% if opt_in_url %}<code>POST {{ opt_in_url }}</code>{% else %}<em>not configured (BANK_OPT_IN_PATH is empty)</em>{% endif %}
 </p>
 <form method="post" class="inline-form">
-  <input name="msisdn" value="{{ msisdn }}" required pattern="\d{9}" maxlength="9" inputmode="numeric" placeholder="MSISDN (9 digits)" {% if not opt_in_url %}disabled{% endif %}>
+  <input name="msisdn" value="{{ msisdn }}" required maxlength="50" placeholder="MSISDN" {% if not opt_in_url %}disabled{% endif %}>
   <button type="submit" {% if not opt_in_url %}disabled{% endif %}>Send opt-in request</button>
 </form>
 

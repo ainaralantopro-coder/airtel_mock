@@ -3,7 +3,7 @@
 {% block content %}
 <h1>Loans</h1>
 <form method="get" class="inline-form">
-  <input name="msisdn" value="{{ msisdn }}" required pattern="\d{9}" maxlength="9" inputmode="numeric" placeholder="MSISDN (9 digits)">
+  <input name="msisdn" value="{{ msisdn }}" required maxlength="50" placeholder="MSISDN">
   <button type="submit">Search</button>
 </form>
 

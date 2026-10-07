@@ -97,9 +97,12 @@ def test_get_user_not_found(client, auth_headers):
     assert body["status"]["code"] == "404"
 
 
-def test_get_user_invalid_msisdn(client, auth_headers):
-    r = client.get("/standard/v2/users/12345", headers=auth_headers)
-    assert r.status_code == 400
+def test_get_user_free_msisdn(client, auth_headers):
+    client.post("/customers/new", data={"msisdn": "+261 34 12", "first_name": "A", "last_name": "B",
+                                        "dob": "1990-01-01", "id_number": "1", "is_pin_set": "on"})
+    r = client.get("/standard/v2/users/+261 34 12", headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()["data"]["msisdn"] == "+261 34 12"
 
 
 def test_get_user_requires_token(client, customer):
@@ -184,9 +187,14 @@ def test_customer_form_rejects_duplicate_and_invalid(client, customer):
     assert r.status_code == 400
     assert "already exists" in r.text
 
-    r = client.post("/customers/new", data={"msisdn": "12", "first_name": "", "dob": "x"})
+    r = client.post("/customers/new", data={"msisdn": "", "first_name": "", "dob": "x"})
     assert r.status_code == 400
-    assert "9 digits" in r.text
+    assert "MSISDN: required field." in r.text
+
+    r = client.post("/customers/new", data={"msisdn": "1" * 51, "first_name": "A", "last_name": "B",
+                                            "dob": "1990-01-01", "id_number": "1"})
+    assert r.status_code == 400
+    assert "MSISDN: 50 characters max." in r.text
 
 
 OPT_IN_OK = {"responseCode": "200", "message": "User opted in successfully", "msisdn": "997739692"}

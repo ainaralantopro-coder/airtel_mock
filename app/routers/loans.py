@@ -23,12 +23,12 @@ from app.bank_client import (
 from app.config import get_settings
 from app.database import get_db
 from app.models import CallSent, Loan
-from app.schemas import is_valid_msisdn
+from app.schemas import MSISDN_MAX_LENGTH, is_valid_msisdn
 from app.web import templates
 
 router = APIRouter(prefix="/loans", include_in_schema=False)
 
-INVALID_MSISDN = "The MSISDN must contain exactly 9 digits."
+INVALID_MSISDN = f"The MSISDN is required ({MSISDN_MAX_LENGTH} characters max)."
 DUE_DATE_FORMATS = (
     "%Y-%m-%d %H:%M:%S.%f",
     "%Y-%m-%d %H:%M:%S",

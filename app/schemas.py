@@ -1,18 +1,17 @@
-import re
 from datetime import date
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-MSISDN_PATTERN = r"^\d{9}$"
-_msisdn_re = re.compile(MSISDN_PATTERN)
+# Champ libre : seule la longueur est bornée, pour tenir dans les colonnes msisdn
+MSISDN_MAX_LENGTH = 50
 
 
 def is_valid_msisdn(value: str) -> bool:
-    return bool(_msisdn_re.fullmatch(value))
+    return 0 < len(value) <= MSISDN_MAX_LENGTH
 
 
 class CustomerCreate(BaseModel):
-    msisdn: str = Field(pattern=MSISDN_PATTERN)
+    msisdn: str = Field(min_length=1, max_length=MSISDN_MAX_LENGTH)
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     dob: date
@@ -49,8 +48,9 @@ class NotifyRequest(BaseModel):
     @field_validator("customer_msisdn")
     @classmethod
     def check_msisdn(cls, value: str) -> str:
+        value = value.strip()
         if not is_valid_msisdn(value):
-            raise ValueError("customer_msisdn must be 9 digits")
+            raise ValueError(f"customer_msisdn must be 1 to {MSISDN_MAX_LENGTH} characters")
         return value
 
     @model_validator(mode="after")

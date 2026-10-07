@@ -12,7 +12,7 @@ from app.bank_client import is_opt_in_success, send_opt_in
 from app.config import get_settings
 from app.database import get_db
 from app.models import Customer, MessageSent
-from app.schemas import CustomerCreate, is_valid_msisdn
+from app.schemas import MSISDN_MAX_LENGTH, CustomerCreate, is_valid_msisdn
 from app.web import templates
 
 router = APIRouter(include_in_schema=False)
@@ -87,7 +87,7 @@ async def register_submit(request: Request, db: Session = Depends(get_db)):
         )
         return templates.TemplateResponse(request, "register.html", context, status_code=503)
     if not is_valid_msisdn(msisdn):
-        context["error"] = "The MSISDN must contain exactly 9 digits."
+        context["error"] = f"The MSISDN is required ({MSISDN_MAX_LENGTH} characters max)."
         return templates.TemplateResponse(request, "register.html", context, status_code=400)
     customer = db.scalar(select(Customer).where(Customer.msisdn == msisdn))
     if customer is None:
@@ -110,7 +110,7 @@ def message_list(request: Request, msisdn: str = "", db: Session = Depends(get_d
     context: dict = {"msisdn": msisdn, "messages": None}
     if msisdn:
         if not is_valid_msisdn(msisdn):
-            context["error"] = "The MSISDN must contain exactly 9 digits."
+            context["error"] = f"The MSISDN is required ({MSISDN_MAX_LENGTH} characters max)."
         else:
             context["messages"] = db.scalars(
                 select(MessageSent)
@@ -123,10 +123,10 @@ def message_list(request: Request, msisdn: str = "", db: Session = Depends(get_d
 def _format_form_error(error: dict) -> str:
     field = str(error["loc"][0]) if error.get("loc") else ""
     label = FIELD_LABELS.get(field, field)
-    if field == "msisdn":
-        return f"{label}: must contain exactly 9 digits."
     if error["type"] in ("missing", "string_too_short"):
         return f"{label}: required field."
     if field == "dob":
         return f"{label}: invalid date."
+    if error["type"] == "string_too_long":
+        return f"{label}: {error['ctx']['max_length']} characters max."
     return f"{label}: {error['msg']}"

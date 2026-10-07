@@ -17,7 +17,7 @@ class Customer(Base):
     __tablename__ = "customer"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    msisdn: Mapped[str] = mapped_column(String(9), unique=True, index=True)
+    msisdn: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     first_name: Mapped[str] = mapped_column(String(100))
     last_name: Mapped[str] = mapped_column(String(100))
     grade: Mapped[str] = mapped_column(String(20), default="SUBS")
@@ -45,7 +45,7 @@ class MessageSent(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     customer_id: Mapped[int] = mapped_column(ForeignKey("customer.id"), index=True)
-    msisdn: Mapped[str] = mapped_column(String(9), index=True)
+    msisdn: Mapped[str] = mapped_column(String(50), index=True)
     message_en: Mapped[str | None] = mapped_column(Text)
     message_fr: Mapped[str | None] = mapped_column(Text)
     message_es: Mapped[str | None] = mapped_column(Text)
@@ -63,7 +63,7 @@ class Loan(Base):
     STATUS_PENDING = "PENDING"  # Apply Loan Status : demande encore en cours de traitement à la banque
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    msisdn: Mapped[str] = mapped_column(String(9), index=True)
+    msisdn: Mapped[str] = mapped_column(String(50), index=True)
     transaction_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
     requested_amount: Mapped[int] = mapped_column(Integer)
     fees_amount: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))  # feesAmount de Check Eligibility
@@ -127,7 +127,7 @@ class CallSent(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     flow: Mapped[str] = mapped_column(String(50), index=True)
-    msisdn: Mapped[str | None] = mapped_column(String(9), index=True)
+    msisdn: Mapped[str | None] = mapped_column(String(50), index=True)
     method: Mapped[str] = mapped_column(String(10))
     url: Mapped[str] = mapped_column(Text)
     request_headers: Mapped[dict | None] = mapped_column(JsonType)

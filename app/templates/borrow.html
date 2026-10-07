@@ -9,8 +9,8 @@
 {% endif %}
 
 <form method="post" action="/loans/borrow/eligibility" class="inline-form">
-  <input name="msisdn" value="{{ msisdn }}" required pattern="\d{9}" maxlength="9" inputmode="numeric"
-         placeholder="MSISDN (9 digits)" {% if not eligibility_url or not apply_url %}disabled{% endif %}>
+  <input name="msisdn" value="{{ msisdn }}" required maxlength="50"
+         placeholder="MSISDN" {% if not eligibility_url or not apply_url %}disabled{% endif %}>
   <button type="submit" {% if not eligibility_url or not apply_url %}disabled{% endif %}>Check eligibility</button>
 </form>
 
