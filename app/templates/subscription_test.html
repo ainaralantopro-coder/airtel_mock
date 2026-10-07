@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Subscription test · Airtel Money mock{% endblock %}
+{% block content %}
+<h1>Subscription status (test)</h1>
+<p class="hint">
+  Temporary test page. Calls
+  {% if base_url %}<code>POST {{ base_url.rstrip('/') }}{{ path }}</code>{% else %}<em>BANK_BASE_URL is not set</em>{% endif %}
+  with <code>{"SubscriptionId": "&lt;id&gt;"}</code>.
+</p>
+<form method="post" class="inline-form">
+  <input name="subscription_id" value="{{ subscription_id }}" required maxlength="100"
+         placeholder="Subscription ID (e.g. 99887766554433)" {% if not base_url %}disabled{% endif %}>
+  <button type="submit" {% if not base_url %}disabled{% endif %}>Send</button>
+</form>
+
+{% if error %}<p class="alert error">{{ error }}</p>{% endif %}
+
+{% if call %}
+<section class="result">
+  <h2>Call result</h2>
+  {% if call.error %}
+  <p class="alert error">Call failed: {{ call.error }}</p>
+  {% else %}
+  <p class="hint">HTTP {{ call.response_status }} in {{ call.duration_ms }} ms</p>
+  {% endif %}
+  <h3>Request</h3>
+  <pre>{{ call.method }} {{ call.url }}
+{{ call.request_body }}</pre>
+  {% if call.response_body is not none %}
+  <h3>Response</h3>
+  <pre>{{ call.response_body }}</pre>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
