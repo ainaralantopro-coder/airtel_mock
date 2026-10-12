@@ -32,8 +32,7 @@ FIELD_LABELS = {
 
 EXPORT_HEADERS = (
     "MSISDN", "First name", "Last name", "Date of birth", "ID number", "Nationality", "Grade",
-    "Account status", "Registration status", "PIN set", "Barred", "Opted in", "Opted in at",
-    "Created at", "Updated at",
+    "Account status", "Registration status", "PIN set", "Barred", "Opted in",
 )
 
 
@@ -50,8 +49,7 @@ def customer_export(db: Session = Depends(get_db)):
     rows = (
         (
             c.msisdn, c.first_name, c.last_name, c.dob.date(), c.id_number, c.nationality, c.grade,
-            c.account_status, c.registration_status, c.is_pin_set, c.is_barred, c.opted_in, c.opted_in_at,
-            c.created_at, c.updated_at,
+            c.account_status, c.registration_status, c.is_pin_set, c.is_barred, c.opted_in,
         )
         for c in customers
     )

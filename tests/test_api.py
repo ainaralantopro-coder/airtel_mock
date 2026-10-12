@@ -319,7 +319,7 @@ def test_customer_export(client, customer):
     assert zo[1:5] == ("Zo", "Rabe", datetime(1985, 2, 3), "01234567890")
     assert zo[9:12] == ("No", "No", "No")  # PIN set (case non cochée), barred, opted in
     assert by_msisdn[customer][9] == "Yes"
-    assert isinstance(zo[13], datetime)
+    assert rows[0][-1] == "Opted in" and len(rows[0]) == 12
 
 
 def test_customer_export_button_hidden_without_customers(client):
