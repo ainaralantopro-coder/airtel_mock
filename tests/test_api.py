@@ -1,9 +1,12 @@
+import re
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 
 import httpx
 import pytest
 from alembic import command
 from alembic.config import Config
+from openpyxl import load_workbook
 from sqlalchemy import select, update
 
 from app import bank_client
@@ -293,3 +296,32 @@ def test_register_without_bank_url(client, customer, monkeypatch):
 def test_register_unknown_customer(client):
     r = client.post("/register", data={"msisdn": "111111111"})
     assert r.status_code == 404
+
+
+# --- Export Excel -----------------------------------------------------------
+
+def test_customer_export(client, customer):
+    assert 'href="/customers/export"' in client.get("/").text
+    client.post("/customers/new", data={"msisdn": "0340000001", "first_name": "Zo", "last_name": "Rabe",
+                                        "dob": "1985-02-03", "id_number": "01234567890"})
+
+    r = client.get("/customers/export")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    assert re.fullmatch(r'attachment; filename="customers_\d{8}_\d{6}\.xlsx"', r.headers["content-disposition"])
+
+    sheet = load_workbook(BytesIO(r.content)).active
+    rows = list(sheet.iter_rows(values_only=True))
+    assert rows[0][:5] == ("MSISDN", "First name", "Last name", "Date of birth", "ID number")
+    assert len(rows) == 3
+    by_msisdn = {row[0]: row for row in rows[1:]}
+    zo = by_msisdn["0340000001"]  # texte : zéros de tête conservés
+    assert zo[1:5] == ("Zo", "Rabe", datetime(1985, 2, 3), "01234567890")
+    assert zo[9:12] == ("No", "No", "No")  # PIN set (case non cochée), barred, opted in
+    assert by_msisdn[customer][9] == "Yes"
+    assert isinstance(zo[13], datetime)
+
+
+def test_customer_export_button_hidden_without_customers(client):
+    assert 'href="/customers/export"' not in client.get("/").text
+    assert client.get("/customers/export").status_code == 200

@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.bank_client import is_opt_in_success, send_opt_in
 from app.config import get_settings
 from app.database import get_db
+from app.excel import XLSX_MEDIA_TYPE, build_xlsx
 from app.models import Customer, MessageSent
 from app.schemas import MSISDN_MAX_LENGTH, CustomerCreate, is_valid_msisdn
 from app.web import templates
@@ -29,11 +30,36 @@ FIELD_LABELS = {
     "registration_status": "Registration status",
 }
 
+EXPORT_HEADERS = (
+    "MSISDN", "First name", "Last name", "Date of birth", "ID number", "Nationality", "Grade",
+    "Account status", "Registration status", "PIN set", "Barred", "Opted in", "Opted in at",
+    "Created at", "Updated at",
+)
+
 
 @router.get("/", response_class=HTMLResponse)
 def customer_list(request: Request, db: Session = Depends(get_db)):
     customers = db.scalars(select(Customer).order_by(Customer.created_at.desc())).all()
     return templates.TemplateResponse(request, "customers.html", {"customers": customers})
+
+
+@router.get("/customers/export")
+def customer_export(db: Session = Depends(get_db)):
+    """Tous les clients et leurs détails, en fichier Excel."""
+    customers = db.scalars(select(Customer).order_by(Customer.created_at.desc(), Customer.id.desc())).all()
+    rows = (
+        (
+            c.msisdn, c.first_name, c.last_name, c.dob.date(), c.id_number, c.nationality, c.grade,
+            c.account_status, c.registration_status, c.is_pin_set, c.is_barred, c.opted_in, c.opted_in_at,
+            c.created_at, c.updated_at,
+        )
+        for c in customers
+    )
+    content = build_xlsx("Customers", EXPORT_HEADERS, rows)
+    filename = f"customers_{datetime.now():%Y%m%d_%H%M%S}.xlsx"
+    return Response(
+        content, media_type=XLSX_MEDIA_TYPE, headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
 @router.get("/customers/new", response_class=HTMLResponse)

@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Customers · Airtel Money mock{% endblock %}
 {% block content %}
-<h1>Customers</h1>
+<div class="page-head">
+  <h1>Customers</h1>
+  {% if customers %}<a class="button" href="/customers/export" download>Export</a>{% endif %}
+</div>
 {% if request.query_params.get('created') %}
 <p class="alert success">Customer {{ request.query_params.get('created') }} created.</p>
 {% endif %}

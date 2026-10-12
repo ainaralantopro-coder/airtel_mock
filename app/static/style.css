@@ -62,6 +62,18 @@ button {
   white-space: nowrap;
 }
 button:hover { filter: brightness(0.92); }
+a.button {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: var(--red);
+  color: #fff;
+  text-decoration: none;
+}
+a.button:hover { filter: brightness(0.92); }
+
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.page-head h1 { margin: 0; }
 button:disabled, input:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .form-grid {
