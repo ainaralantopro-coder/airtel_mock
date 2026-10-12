@@ -47,3 +47,18 @@ def test_seed_is_reproducible(client):
         db.commit()
     generate_customers.main(["3", "--seed", "7"])
     assert sorted((c.msisdn, c.first_name, c.id_number) for c in all_customers()) == first
+
+
+def test_dates_of_birth_are_unique(client, customer):
+    assert generate_customers.main(["300"]) == 0
+    dobs = [c.dob for c in all_customers()]
+    assert len(dobs) == 301 and len(set(dobs)) == 301
+
+
+def test_stops_when_no_date_of_birth_left(client, monkeypatch):
+    monkeypatch.setattr(generate_customers, "MAX_AGE", generate_customers.MIN_AGE)  # une seule date possible
+    assert generate_customers.main(["2"]) == 1
+    assert all_customers() == []
+    assert generate_customers.main(["1"]) == 0
+    assert generate_customers.main(["1"]) == 1
+    assert len(all_customers()) == 1

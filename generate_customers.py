@@ -4,8 +4,8 @@
     .venv/bin/python generate_customers.py 50 --prefix 34    # MSISDN 34xxxxxxx
     .venv/bin/python generate_customers.py 50 --seed 42      # tirage reproductible
 
-MSISDN sur 9 chiffres (ex. 331245678) et numéro d'identité sur 11 chiffres (ex. 10234578990), tous deux
-uniques, y compris par rapport aux clients déjà en base. Champs fixes : nationality MG, grade SUBS,
+MSISDN sur 9 chiffres (ex. 331245678), numéro d'identité sur 11 chiffres (ex. 10234578990) et date de naissance
+sont chacun uniques, y compris par rapport aux clients déjà en base. Champs fixes : nationality MG, grade SUBS,
 account_status N, registration_status SUBS, PIN défini, compte non barré.
 """
 
@@ -58,21 +58,30 @@ def main(argv: list[str] | None = None) -> int:
     with SessionLocal() as db:
         used_msisdns = set(db.scalars(select(Customer.msisdn)))
         used_ids = set(db.scalars(select(Customer.id_number)))
+        used_dobs = {dob.date() for dob in db.scalars(select(Customer.dob))}
 
-        free = 10 ** (MSISDN_LENGTH - len(args.prefix)) - sum(m.startswith(args.prefix) for m in used_msisdns)
-        if args.count > free:
-            print(f"Only {free} MSISDN left with prefix {args.prefix}: ask for fewer customers or another prefix.")
+        oldest, youngest = _dob_range()
+        free_msisdns = 10 ** (MSISDN_LENGTH - len(args.prefix)) - sum(m.startswith(args.prefix) for m in used_msisdns)
+        free_dobs = (youngest - oldest).days + 1 - sum(oldest <= dob <= youngest for dob in used_dobs)
+        if args.count > free_msisdns:
+            print(f"Only {free_msisdns} MSISDN left with prefix {args.prefix}: "
+                  "ask for fewer customers or another prefix.")
+            return 1
+        if args.count > free_dobs:
+            print(f"Only {free_dobs} unused dates of birth left between {oldest} and {youngest}: "
+                  "ask for fewer customers.")
             return 1
 
         customers = []
         for _ in range(args.count):
             msisdn = _unique(used_msisdns, lambda: args.prefix + _digits(rng, MSISDN_LENGTH - len(args.prefix)))
             id_number = _unique(used_ids, lambda: str(rng.randint(1, 9)) + _digits(rng, ID_NUMBER_LENGTH - 1))
+            dob = _unique(used_dobs, lambda: oldest + timedelta(days=rng.randint(0, (youngest - oldest).days)))
             customer_in = CustomerCreate(
                 msisdn=msisdn,
                 first_name=rng.choice(FIRST_NAMES),
                 last_name=rng.choice(LAST_NAMES),
-                dob=_random_dob(rng),
+                dob=dob,
                 id_number=id_number,
                 nationality="MG",
                 grade="SUBS",
@@ -98,7 +107,8 @@ def _digits(rng: random.Random, length: int) -> str:
     return "".join(rng.choice("0123456789") for _ in range(length))
 
 
-def _unique(used: set[str], make) -> str:
+def _unique(used: set, make):
+    """Tire des valeurs avec make() jusqu'à en trouver une absente de used, puis l'y ajoute."""
     while True:
         value = make()
         if value not in used:
@@ -106,12 +116,11 @@ def _unique(used: set[str], make) -> str:
             return value
 
 
-def _random_dob(rng: random.Random) -> date:
+def _dob_range() -> tuple[date, date]:
+    """Dates de naissance possibles (la plus ancienne, la plus récente) pour un âge de MIN_AGE à MAX_AGE ans."""
     today = date.today()
     day = min(today.day, 28)  # évite le 29 février
-    youngest = date(today.year - MIN_AGE, today.month, day)
-    oldest = date(today.year - MAX_AGE, today.month, day)
-    return oldest + timedelta(days=rng.randint(0, (youngest - oldest).days))
+    return date(today.year - MAX_AGE, today.month, day), date(today.year - MIN_AGE, today.month, day)
 
 
 if __name__ == "__main__":
