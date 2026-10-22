@@ -58,3 +58,16 @@ class NotifyRequest(BaseModel):
         if not any([self.message.en, self.message.fr, self.message.es]):
             raise ValueError("message must contain at least one of en, fr, es")
         return self
+
+
+class TxnEnquiryRequest(BaseModel):
+    txn_id: str  # transactionId envoyé à la banque dans Apply Loan
+    loan_id: str
+
+    @field_validator("txn_id", "loan_id")
+    @classmethod
+    def required(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be empty")
+        return value
