@@ -58,7 +58,16 @@ class WalletTransaction(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))  # toujours positif, le sens est donné par type
     balance_after: Mapped[Decimal] = mapped_column(Numeric(18, 2))
     description: Mapped[str | None] = mapped_column(String(255))
+    # Top-up notification envoyée à la banque pour un dépôt d'un client en défaut (None : non concerné)
+    topup_notification: Mapped[str | None] = mapped_column(String(20))
+    topup_call_id: Mapped[int | None] = mapped_column(ForeignKey("call_sent.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    NOTIFICATION_SENT = "SENT"  # responseCode "200" reçu
+    NOTIFICATION_FAILED = "FAILED"  # banque injoignable ou autre réponse
+    NOTIFICATION_NOT_CONFIGURED = "NOT_CONFIGURED"  # BANK_TOPUP_NOTIFICATION_PATH vide : rien n'est envoyé
+
+    topup_call: Mapped["CallSent | None"] = relationship()
 
 
 class MessageSent(Base):

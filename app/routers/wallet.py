@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app import wallet
 from app.database import get_db
 from app.models import Customer, WalletTransaction
+from app.topup_notification import notify_if_defaulter
 from app.web import templates
 
 router = APIRouter(prefix="/wallet", include_in_schema=False)
@@ -55,6 +56,7 @@ async def _operate(request: Request, db: Session, operation, form_name: str):
         context[f"{form_name}_error"] = str(exc)
         context[f"{form_name}_values"] = {"amount": amount_text, "description": description}
         return templates.TemplateResponse(request, "wallet.html", context, status_code=400)
+    notify_if_defaulter(db, transaction)
     query = urlencode({"msisdn": msisdn, "done": transaction.reference})
     return RedirectResponse(f"/wallet?{query}", status_code=303)
 

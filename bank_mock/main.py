@@ -1,5 +1,5 @@
 """Banque simulée : répond aux appels sortants du mock Airtel (opt-in, Check Eligibility, Apply Loan,
-Apply Loan Status, Confirm Loan, Cancel Loan).
+Apply Loan Status, Confirm Loan, Cancel Loan, Top-up notification).
 
 Les chemins sont provisoires, en attendant la spec de la banque. Les prêts accordés sont conservés dans
 un fichier JSON (BANK_MOCK_LOANS_FILE, voir store.py). Les refus métier sont renvoyés en HTTP 200 avec
@@ -246,6 +246,16 @@ async def cancel_loan(request: Request):
     return _reply(
         "cancel_loan", body, {"responseCode": "200", "message": "Loan Cancelled sucessfully", "msisdn": msisdn}
     )
+
+
+@app.post(API_PREFIX + "/topup-notification")
+async def topup_notification(request: Request):
+    """Airtel signale qu'un client en défaut a été crédité. Accusé de réception seulement : l'autostrike n'est
+    pas déclenché automatiquement par le bank-mock."""
+    body, msisdn, early = await _start(request, "topup_notification")
+    if early:
+        return early
+    return _reply("topup_notification", body, {"responseCode": "200"})
 
 
 async def _start(request: Request, flow: str) -> tuple[dict, str, Response | None]:

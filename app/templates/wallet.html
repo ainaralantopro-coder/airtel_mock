@@ -24,6 +24,16 @@
   {{ 'Deposit' if done.type == 'DEPOSIT' else 'Withdrawal' }} of {{ done.amount | ariary }} done
   (<span class="mono">{{ done.reference }}</span>). New balance: {{ done.balance_after | ariary }}.
 </p>
+{% if done.topup_notification == 'SENT' %}
+<p class="alert success">Customer is a defaulter: top-up notification sent to the bank.</p>
+{% elif done.topup_notification == 'FAILED' %}
+<p class="alert error">
+  Customer is a defaulter, but the top-up notification failed:
+  {% if done.topup_call.error %}{{ done.topup_call.error }}{% else %}HTTP {{ done.topup_call.response_status }} {{ done.topup_call.response_body or '' }}{% endif %}
+</p>
+{% elif done.topup_notification == 'NOT_CONFIGURED' %}
+<p class="alert warning">Customer is a defaulter, but no top-up notification was sent: BANK_TOPUP_NOTIFICATION_PATH is not set.</p>
+{% endif %}
 {% endif %}
 
 <div class="wallet-ops">
@@ -59,7 +69,7 @@
 <div class="table-wrap">
 <table>
   <thead>
-    <tr><th>Date</th><th>Reference</th><th>Type</th><th>Amount</th><th>Balance after</th><th>Description</th></tr>
+    <tr><th>Date</th><th>Reference</th><th>Type</th><th>Amount</th><th>Balance after</th><th>Description</th><th>Bank notified</th></tr>
   </thead>
   <tbody>
     {% for t in transactions %}
@@ -70,6 +80,7 @@
       <td class="nowrap">{{ '+' if t.type == 'DEPOSIT' else '−' }}{{ t.amount | ariary }}</td>
       <td class="nowrap">{{ t.balance_after | ariary }}</td>
       <td>{{ t.description or '' }}</td>
+      <td>{% if t.topup_notification == 'SENT' %}<span class="badge ok">Yes</span>{% elif t.topup_notification == 'FAILED' %}<span class="badge err">Failed</span>{% elif t.topup_notification == 'NOT_CONFIGURED' %}<span class="badge">Not set</span>{% endif %}</td>
     </tr>
     {% endfor %}
   </tbody>

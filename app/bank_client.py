@@ -53,6 +53,20 @@ def send_cancel_loan(db: Session, url: str, msisdn: str, transaction_id: str) ->
     return _post_json(db, flow="cancel_loan", url=url, msisdn=msisdn, payload=payload)
 
 
+def send_topup_notification(
+    db: Session, url: str, msisdn: str, top_up_amount: str, transaction_id: str, transaction_timestamp: str,
+    available_balance_amount: str,
+) -> CallSent:
+    payload = {
+        "msisdn": msisdn,
+        "topUpAmount": top_up_amount,
+        "transactionId": transaction_id,
+        "transactionTimestamp": transaction_timestamp,
+        "availableBalanceAmount": available_balance_amount,
+    }
+    return _post_json(db, flow="topup_notification", url=url, msisdn=msisdn, payload=payload)
+
+
 def new_transaction_id() -> str:
     """Identifiant de transaction côté Airtel : APC + horodatage + 8 chiffres aléatoires."""
     return f"APC{datetime.now():%Y%m%d%H%M%S}{secrets.randbelow(10**8):08d}"
