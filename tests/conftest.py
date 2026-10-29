@@ -17,6 +17,9 @@ os.environ["BANK_APPLY_LOAN_STATUS_PATH"] = "/apply-loan-status"
 os.environ["BANK_CONFIRM_LOAN_PATH"] = "/confirm-loan"
 os.environ["BANK_CANCEL_LOAN_PATH"] = "/cancel-loan"
 os.environ["BANK_TOPUP_NOTIFICATION_PATH"] = "/topup-notification"
+os.environ["BANK_LOOKUP_DETAILS_PATH"] = "/lookup-details"
+os.environ["BANK_REPAY_LOAN_PATH"] = "/repay-loan"
+os.environ["BANK_REPAY_LOAN_STATUS_PATH"] = "/repay-loan-status"
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402

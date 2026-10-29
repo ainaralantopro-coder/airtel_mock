@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     bank_confirm_loan_path: str = ""
     bank_cancel_loan_path: str = ""
     bank_topup_notification_path: str = ""
+    bank_lookup_details_path: str = ""
+    bank_repay_loan_path: str = ""
+    bank_repay_loan_status_path: str = ""
     bank_timeout_seconds: float = 30.0
 
     @property
@@ -49,6 +52,18 @@ class Settings(BaseSettings):
     @property
     def bank_topup_notification_url(self) -> str | None:
         return self._bank_url(self.bank_topup_notification_path)
+
+    @property
+    def bank_lookup_details_url(self) -> str | None:
+        return self._bank_url(self.bank_lookup_details_path)
+
+    @property
+    def bank_repay_loan_url(self) -> str | None:
+        return self._bank_url(self.bank_repay_loan_path)
+
+    @property
+    def bank_repay_loan_status_url(self) -> str | None:
+        return self._bank_url(self.bank_repay_loan_status_path)
 
     def _bank_url(self, path: str) -> str | None:
         """URL complète d'un endpoint de la banque, ou None tant qu'il n'est pas configuré."""

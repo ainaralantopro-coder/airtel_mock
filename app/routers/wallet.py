@@ -44,17 +44,16 @@ async def _operate(request: Request, db: Session, operation, form_name: str):
     form = await request.form()
     msisdn = str(form.get("msisdn", "")).strip()
     amount_text = str(form.get("amount", "")).strip()
-    description = str(form.get("description", ""))
 
     context = _context(db, msisdn)
     if context["customer"] is None:
         return templates.TemplateResponse(request, "wallet.html", context, status_code=404)
     try:
-        transaction = operation(db, context["customer"].id, wallet.parse_amount(amount_text), description)
+        transaction = operation(db, context["customer"].id, wallet.parse_amount(amount_text))
     except wallet.WalletError as exc:
         context = _context(db, msisdn)  # solde relu après un éventuel rollback
         context[f"{form_name}_error"] = str(exc)
-        context[f"{form_name}_values"] = {"amount": amount_text, "description": description}
+        context[f"{form_name}_values"] = {"amount": amount_text}
         return templates.TemplateResponse(request, "wallet.html", context, status_code=400)
     notify_if_defaulter(db, transaction)
     query = urlencode({"msisdn": msisdn, "done": transaction.reference})

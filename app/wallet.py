@@ -54,6 +54,11 @@ def autostrike(db: Session, customer_id: int, amount: Decimal, description: str 
     return _move(db, customer_id, WalletTransaction.TYPE_AUTOSTRIKE, amount, description, commit=False)
 
 
+def repay(db: Session, customer_id: int, amount: Decimal, description: str | None = None) -> WalletTransaction:
+    """Débit du payeur d'un remboursement manuel. Comme autostrike(), ne valide pas la transaction."""
+    return _move(db, customer_id, WalletTransaction.TYPE_REPAYMENT, amount, description, commit=False)
+
+
 def _move(
     db: Session, customer_id: int, type_: str, amount: Decimal, description: str | None, commit: bool = True
 ) -> WalletTransaction:

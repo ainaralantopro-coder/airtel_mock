@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Repay loan · Airtel Money mock{% endblock %}
+{% block content %}
+<h1>Repay loan</h1>
+{% if not lookup_url or not repay_url %}
+<p class="alert warning">
+  Endpoints not configured: set BANK_LOOKUP_DETAILS_PATH and BANK_REPAY_LOAN_PATH in .env.
+</p>
+{% endif %}
+
+<form method="post" action="/repay/lookup" class="inline-form">
+  <input name="msisdn" value="{{ msisdn }}" required maxlength="50" placeholder="Borrower MSISDN"
+         {% if not lookup_url %}disabled{% endif %}>
+  <button type="submit" {% if not lookup_url %}disabled{% endif %}>Look up loan</button>
+</form>
+
+{% if error %}<p class="alert error">{{ error }}</p>{% endif %}
+{% if success %}<p class="alert success">{{ success }}</p>{% endif %}
+{% if warning %}<p class="alert warning">{{ warning }}</p>{% endif %}
+
+{% if done %}
+  {% if done.status == 'SUCCESS' %}
+  <p class="alert success">
+    Repayment of {{ done.amount | ariary }} done by {{ done.payer_msisdn }} (<span class="mono">{{ done.transaction_id }}</span>).
+    {{ done.response_message or '' }}
+    {% if done.total_outstanding_amt is not none %}Outstanding amount: {{ done.total_outstanding_amt | ariary }}.{% endif %}
+  </p>
+  {% elif done.status == 'UNKNOWN' %}
+  <p class="alert warning">
+    No answer from the bank for repayment <span class="mono">{{ done.transaction_id }}</span>: {{ done.response_message }}
+    The payer was not debited. Use "Check status" below.
+  </p>
+  {% else %}
+  <p class="alert error">Repayment refused by the bank: {{ done.response_message }}</p>
+  {% endif %}
+{% endif %}
+
+{% if offer %}
+<section class="ussd">
+  <p>Current outstanding amount is <strong>{{ offer.principle_outstanding | ariary }}</strong></p>
+  <dl class="details">
+    <dt>Loan ID</dt><dd class="mono">{{ offer.loan_id }}</dd>
+    <dt>Fees outstanding</dt><dd>{{ offer.fees_outstanding | ariary }}</dd>
+    <dt>Total outstanding</dt><dd>{{ offer.amount_outstanding | ariary }}</dd>
+    <dt>Issued</dt><dd>{{ offer.issued_date or '' }}</dd>
+    <dt>Due date</dt><dd>{{ offer.due_date or '' }}</dd>
+  </dl>
+  {% if offer.several_active %}
+  <p class="alert warning">The bank returned several loans with an outstanding amount: the first one is used.</p>
+  {% endif %}
+
+  {% if offer.amount_outstanding > 0 %}
+  <form method="post" action="/repay/pay" class="form-stack">
+    <input type="hidden" name="msisdn" value="{{ msisdn }}">
+    {% for field in ['loan_id', 'issued_date', 'due_date'] %}
+    <input type="hidden" name="{{ field }}" value="{{ offer[field] or '' }}">
+    {% endfor %}
+    {% for field in ['principle_outstanding', 'fees_outstanding', 'amount_outstanding', 'min_amount', 'max_amount', 'total_amount'] %}
+    <input type="hidden" name="{{ field }}" value="{{ plain(offer[field]) if offer[field] is not none else '' }}">
+    {% endfor %}
+    <label class="field">Payer MSISDN (the borrower, or someone paying for them)
+      <input name="payer_msisdn" value="{{ payer }}" required maxlength="50">
+    </label>
+    {% if payer_error %}<p class="alert error">{{ payer_error }}</p>{% endif %}
+    <label class="field">Amount to pay
+      <span class="inline-form">
+        <input type="number" name="amount" value="{{ amount }}" required step="1" min="1"
+               {% if offer.max_amount is not none %}max="{{ plain(offer.max_amount) }}"{% endif %}>
+        <button type="submit" {% if not repay_url %}disabled{% endif %}>Pay</button>
+      </span>
+    </label>
+    <p class="hint">
+      {% if offer.min_amount is not none %}Min {{ offer.min_amount | ariary }} · {% endif %}
+      {% if offer.max_amount is not none %}Max {{ offer.max_amount | ariary }} · {% endif %}
+      At most {{ offer.amount_outstanding | ariary }}
+    </p>
+    {% if amount_error %}<p class="alert error">{{ amount_error }}</p>{% endif %}
+  </form>
+  {% else %}
+  <p class="alert success">This loan has no outstanding amount.</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if msisdn and repayments %}
+<h2>Repayments for {{ msisdn }}</h2>
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Date</th><th>Status</th><th>Transaction ID</th><th>Loan ID</th><th>Payer</th><th>Amount</th>
+      <th>Total paid</th><th>Outstanding</th><th>Fees</th><th>Message</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in repayments %}
+    <tr>
+      <td class="nowrap">{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{% if r.status == 'SUCCESS' %}<span class="badge ok">SUCCESS</span>{% elif r.status == 'UNKNOWN' %}<span class="badge">UNKNOWN</span>{% else %}<span class="badge err">{{ r.status }}</span>{% endif %}</td>
+      <td class="mono">{{ r.transaction_id }}</td>
+      <td class="mono">{{ r.loan_ref }}</td>
+      <td class="mono">{{ r.payer_msisdn }}{% if r.payer_msisdn == r.borrower_msisdn %} <span class="hint">(self)</span>{% endif %}</td>
+      <td class="nowrap">{{ r.amount | ariary }}</td>
+      <td class="nowrap">{{ r.total_amt_paid | ariary }}</td>
+      <td class="nowrap">{{ r.total_outstanding_amt | ariary }}</td>
+      <td class="nowrap">{{ r.loan_fees | ariary }}</td>
+      <td>{{ r.response_message or '' }}</td>
+      <td class="actions">
+        <form method="post" action="/repay/{{ r.id }}/status">
+          <button type="submit" class="secondary" {% if not status_url %}disabled title="BANK_REPAY_LOAN_STATUS_PATH is not set"{% endif %}>Check status</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

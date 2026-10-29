@@ -27,8 +27,7 @@ def test_new_customer_starts_at_zero(client, customer):
 
 
 def test_deposit_then_withdraw(client, customer):
-    r = client.post("/wallet/deposit", data={"msisdn": customer, "amount": "5000", "description": "Cash in"},
-                    follow_redirects=False)
+    r = client.post("/wallet/deposit", data={"msisdn": customer, "amount": "5000"}, follow_redirects=False)
     assert r.status_code == 303
     assert r.headers["location"].startswith(f"/wallet?msisdn={customer}&done=WLT")
 
@@ -41,7 +40,7 @@ def test_deposit_then_withdraw(client, customer):
 
     deposit, withdrawal = history(customer)
     assert (deposit.type, deposit.amount, deposit.balance_after, deposit.description) == (
-        "DEPOSIT", Decimal("5000"), Decimal("5000"), "Cash in"
+        "DEPOSIT", Decimal("5000"), Decimal("5000"), None
     )
     assert (withdrawal.type, withdrawal.amount, withdrawal.balance_after, withdrawal.description) == (
         "WITHDRAWAL", Decimal("1200"), Decimal("3800"), None
@@ -49,12 +48,13 @@ def test_deposit_then_withdraw(client, customer):
     assert deposit.reference != withdrawal.reference
 
     page = client.get(f"/wallet?msisdn={customer}").text
-    assert deposit.reference in page and withdrawal.reference in page and "Cash in" in page
+    assert deposit.reference in page and withdrawal.reference in page
+    assert 'name="description"' not in page
 
 
 def test_withdraw_more_than_balance_is_refused(client, customer):
     client.post("/wallet/deposit", data={"msisdn": customer, "amount": "1000"})
-    r = client.post("/wallet/withdraw", data={"msisdn": customer, "amount": "1001", "description": "x"})
+    r = client.post("/wallet/withdraw", data={"msisdn": customer, "amount": "1001"})
     assert r.status_code == 400
     assert "Insufficient balance" in r.text and 'value="1001"' in r.text
     assert balance(customer) == Decimal("1000") and len(history(customer)) == 1
@@ -71,9 +71,9 @@ def test_invalid_amount(client, customer, operation, amount):
     assert history(customer) == [] and balance(customer) == 0
 
 
-def test_description_too_long(client, customer):
-    r = client.post("/wallet/deposit", data={"msisdn": customer, "amount": "10", "description": "x" * 256})
-    assert r.status_code == 400 and "255 characters" in r.text
+def test_description_from_form_is_ignored(client, customer):
+    client.post("/wallet/deposit", data={"msisdn": customer, "amount": "10", "description": "x"})
+    assert history(customer)[0].description is None
 
 
 def test_unknown_customer(client):

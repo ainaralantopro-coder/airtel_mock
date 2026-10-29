@@ -152,3 +152,5 @@ pre {
 .card h2 { margin: 0; font-size: 1.1rem; }
 .card button { align-self: flex-start; }
 .card .alert { margin: 0; }
+.form-stack { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.form-stack .alert { margin: 0; }

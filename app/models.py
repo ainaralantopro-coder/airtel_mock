@@ -42,13 +42,14 @@ class Customer(Base):
 
 
 class WalletTransaction(Base):
-    """Mouvement sur le wallet d'un client : dépôt (crédit), retrait ou autostrike (débits)."""
+    """Mouvement sur le wallet d'un client : dépôt (crédit), retrait, autostrike ou remboursement (débits)."""
 
     __tablename__ = "wallet_transaction"
 
     TYPE_DEPOSIT = "DEPOSIT"
     TYPE_WITHDRAWAL = "WITHDRAWAL"
     TYPE_AUTOSTRIKE = "AUTOSTRIKE"  # prélèvement de recouvrement demandé par la banque
+    TYPE_REPAYMENT = "REPAYMENT"  # remboursement manuel d'un prêt (écran Repay loan), débité au payeur
 
     id: Mapped[int] = mapped_column(primary_key=True)
     customer_id: Mapped[int] = mapped_column(ForeignKey("customer.id"), index=True)
@@ -166,6 +167,39 @@ class LoanDefaulter(Base):
     )
 
     loan: Mapped["Loan | None"] = relationship()
+
+
+class LoanRepayment(Base):
+    """Remboursement manuel d'un prêt (écran Repay loan), envoyé à la banque par Repay Loan.
+
+    Le payeur peut être l'emprunteur (pay for self) ou un autre client (pay for others) ; son wallet n'est
+    débité que lorsque la banque confirme le remboursement.
+    """
+
+    __tablename__ = "loan_repayment"
+
+    STATUS_SUCCESS = "SUCCESS"
+    STATUS_FAILED = "FAILED"
+    STATUS_UNKNOWN = "UNKNOWN"  # pas de réponse exploitable de la banque : à vérifier avec Repay Loan Status
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    borrower_msisdn: Mapped[str] = mapped_column(String(50), index=True)
+    payer_msisdn: Mapped[str] = mapped_column(String(50), index=True)
+    payer_customer_id: Mapped[int] = mapped_column(ForeignKey("customer.id"))
+    loan_ref: Mapped[str] = mapped_column(String(50))  # loanId de la banque
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    transaction_id: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(20))
+    response_code: Mapped[str | None] = mapped_column(String(20))
+    response_message: Mapped[str | None] = mapped_column(Text)
+    total_amt_paid: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    total_outstanding_amt: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    loan_fees: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))  # donné par Repay Loan Status
+    wallet_transaction_id: Mapped[int | None] = mapped_column(ForeignKey("wallet_transaction.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class Autostrike(Base):

@@ -43,9 +43,6 @@
     <label class="field">Amount (Ar)
       <input type="number" name="amount" value="{{ deposit_values.amount or '' }}" required min="1" step="1">
     </label>
-    <label class="field">Description (optional)
-      <input name="description" value="{{ deposit_values.description or '' }}" maxlength="255">
-    </label>
     {% if deposit_error %}<p class="alert error">{{ deposit_error }}</p>{% endif %}
     <button type="submit">Deposit</button>
   </form>
@@ -55,9 +52,6 @@
     <input type="hidden" name="msisdn" value="{{ customer.msisdn }}">
     <label class="field">Amount (Ar)
       <input type="number" name="amount" value="{{ withdraw_values.amount or '' }}" required min="1" step="1">
-    </label>
-    <label class="field">Description (optional)
-      <input name="description" value="{{ withdraw_values.description or '' }}" maxlength="255">
     </label>
     {% if withdraw_error %}<p class="alert error">{{ withdraw_error }}</p>{% endif %}
     <button type="submit" class="secondary">Withdraw</button>
@@ -76,7 +70,7 @@
     <tr>
       <td class="nowrap">{{ t.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
       <td class="mono">{{ t.reference }}</td>
-      <td>{% if t.type == 'DEPOSIT' %}<span class="badge ok">Deposit</span>{% elif t.type == 'AUTOSTRIKE' %}<span class="badge err">Autostrike</span>{% else %}<span class="badge err">Withdrawal</span>{% endif %}</td>
+      <td>{% if t.type == 'DEPOSIT' %}<span class="badge ok">Deposit</span>{% elif t.type == 'AUTOSTRIKE' %}<span class="badge err">Autostrike</span>{% elif t.type == 'REPAYMENT' %}<span class="badge err">Loan repayment</span>{% else %}<span class="badge err">Withdrawal</span>{% endif %}</td>
       <td class="nowrap">{{ '+' if t.type == 'DEPOSIT' else '−' }}{{ t.amount | ariary }}</td>
       <td class="nowrap">{{ t.balance_after | ariary }}</td>
       <td>{{ t.description or '' }}</td>
