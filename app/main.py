@@ -13,7 +13,7 @@ from app.errors import (
     validation_error_handler,
 )
 from app.middleware import CallReceiveMiddleware
-from app.routers import auth, loans, notify, subscription_test, txn, ui, users
+from app.routers import auth, loans, notify, subscription_test, topup, txn, ui, users
 
 app = FastAPI(
     title="Airtel Money mock",
@@ -33,6 +33,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(notify.router)
 app.include_router(txn.router)
+app.include_router(topup.router)
 app.include_router(ui.router)
 app.include_router(loans.router)
 app.include_router(subscription_test.router)  # TEMPORAIRE : test, à supprimer

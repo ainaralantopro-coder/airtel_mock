@@ -1,6 +1,8 @@
 from datetime import date
+from decimal import Decimal
+from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, StrictBool, field_validator, model_validator
 
 # Champ libre : seule la longueur est bornée, pour tenir dans les colonnes msisdn
 MSISDN_MAX_LENGTH = 50
@@ -71,3 +73,52 @@ class TxnEnquiryRequest(BaseModel):
         if not value:
             raise ValueError("must not be empty")
         return value
+
+
+class DefaulterLoanInfo(BaseModel):
+    id: str | None = None  # facultatif
+    type: Literal["OVERDRAFT", "TERM"]
+
+    @field_validator("id")
+    @classmethod
+    def empty_to_none(cls, value: str | None) -> str | None:
+        value = value.strip() if value is not None else None
+        return value or None
+
+
+class DefaulterBeneficiary(BaseModel):
+    msisdn: str
+
+    @field_validator("msisdn")
+    @classmethod
+    def check_msisdn(cls, value: str) -> str:
+        value = value.strip()
+        if not is_valid_msisdn(value):
+            raise ValueError(f"msisdn must be 1 to {MSISDN_MAX_LENGTH} characters")
+        return value
+
+
+class DefaulterInfo(BaseModel):
+    amount: Decimal
+    status: StrictBool
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def parse_amount(cls, value):
+        # Chaîne ("400") comme dans la spec, ou nombre ; jamais un booléen
+        if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+            raise ValueError("amount must be a number or a numeric string")
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("amount")
+    @classmethod
+    def check_amount(cls, value: Decimal) -> Decimal:
+        if not value.is_finite() or value < 0:
+            raise ValueError("amount must be a number >= 0")
+        return value
+
+
+class DefaulterRequest(BaseModel):
+    loan_info: DefaulterLoanInfo
+    beneficiary: DefaulterBeneficiary
+    defaulter_info: DefaulterInfo

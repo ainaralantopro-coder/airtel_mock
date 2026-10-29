@@ -12,7 +12,7 @@ from app.bank_client import is_opt_in_success, send_opt_in
 from app.config import get_settings
 from app.database import get_db
 from app.excel import XLSX_MEDIA_TYPE, build_xlsx
-from app.models import Customer, MessageSent
+from app.models import Customer, LoanDefaulter, MessageSent
 from app.schemas import MSISDN_MAX_LENGTH, CustomerCreate, is_valid_msisdn
 from app.web import templates
 
@@ -142,6 +142,17 @@ def message_list(request: Request, msisdn: str = "", db: Session = Depends(get_d
                 .order_by(MessageSent.created_at.desc(), MessageSent.id.desc())
             ).all()
     return templates.TemplateResponse(request, "messages.html", context)
+
+
+@router.get("/defaulters", response_class=HTMLResponse)
+def defaulter_list(request: Request, msisdn: str = "", db: Session = Depends(get_db)):
+    """Statuts defaulter reçus de la banque, tous ou ceux d'un MSISDN."""
+    msisdn = msisdn.strip()
+    query = select(LoanDefaulter).order_by(LoanDefaulter.updated_at.desc(), LoanDefaulter.id.desc())
+    if msisdn:
+        query = query.where(LoanDefaulter.msisdn == msisdn)
+    context = {"msisdn": msisdn, "defaulters": db.scalars(query).all()}
+    return templates.TemplateResponse(request, "defaulters.html", context)
 
 
 def _format_form_error(error: dict) -> str:

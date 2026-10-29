@@ -1,6 +1,7 @@
 """Réponses d'erreur des API exposées à la banque.
 
-Seuls les codes de succès sont connus (DP02200000001 pour users, DP02800001001 pour notify).
+Seuls les codes de succès sont connus (DP02200000001 pour users, DP02800001001 pour notify et
+txn/enquiry, DP02810001001 pour loans-defaulter).
 Les codes d'erreur ci-dessous sont des valeurs du mock, à remplacer si la spec réelle les fournit.
 """
 
@@ -24,10 +25,21 @@ NOTIFY_RESPONSE_CODES = {
     500: "DP02800005001",
 }
 
+TOPUP_RESPONSE_CODES = {
+    200: "DP02810001001",
+    400: "DP02810004001",
+    401: "DP02810004011",
+    404: "DP02810004041",
+    500: "DP02810005001",
+}
+
 AUTH_PATH_PREFIX = "/auth"
 USERS_PATH_PREFIX = "/standard"
 NOTIFY_PATH_PREFIX = "/term-loans"
-PARTNER_PATH_PREFIXES = (AUTH_PATH_PREFIX, USERS_PATH_PREFIX, NOTIFY_PATH_PREFIX)
+TOPUP_PATH_PREFIX = "/topup-notification"
+# API à enveloppe {"status": ...} : erreurs de validation et erreurs internes au même format
+ENVELOPE_PATH_PREFIXES = (USERS_PATH_PREFIX, NOTIFY_PATH_PREFIX, TOPUP_PATH_PREFIX)
+PARTNER_PATH_PREFIXES = (AUTH_PATH_PREFIX, *ENVELOPE_PATH_PREFIXES)
 
 
 class ApiError(Exception):
@@ -64,7 +76,20 @@ def notify_status(code: int, message: str) -> dict:
     }
 
 
+def topup_status(code: int, message: str) -> dict:
+    return {
+        "response_code": TOPUP_RESPONSE_CODES.get(code, TOPUP_RESPONSE_CODES[500]),
+        "code": str(code),
+        "success": code == 200,
+        "message": message,
+    }
+
+
 def error_response(request: Request, status_code: int, message: str, headers=None) -> JSONResponse:
+    if request.url.path.startswith(TOPUP_PATH_PREFIX):
+        # Pas de "data" dans les réponses de cette API, succès compris
+        content = {"status": topup_status(status_code, message)}
+        return JSONResponse(status_code=status_code, content=content, headers=headers)
     if request.url.path.startswith(NOTIFY_PATH_PREFIX):
         status = notify_status(status_code, message)
     else:
@@ -84,14 +109,14 @@ async def oauth_error_handler(request: Request, exc: OAuthError) -> JSONResponse
 
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    if request.url.path.startswith((USERS_PATH_PREFIX, NOTIFY_PATH_PREFIX)):
+    if request.url.path.startswith(ENVELOPE_PATH_PREFIXES):
         details = "; ".join(_format_error(e) for e in exc.errors())
         return error_response(request, 400, f"Invalid request: {details}")
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    if request.url.path.startswith((USERS_PATH_PREFIX, NOTIFY_PATH_PREFIX)):
+    if request.url.path.startswith(ENVELOPE_PATH_PREFIXES):
         return error_response(request, 500, "Internal server error")
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Defaulters · Airtel Money mock{% endblock %}
+{% block content %}
+<h1>Defaulters</h1>
+<p class="hint">Defaulter status set by the bank (<code>POST /topup-notification/v1/update/loans-defaulter</code>).</p>
+<form method="get" class="inline-form">
+  <input name="msisdn" value="{{ msisdn }}" maxlength="50" placeholder="MSISDN (empty = all)">
+  <button type="submit">Search</button>
+</form>
+
+{% if defaulters %}
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th>Updated</th><th>MSISDN</th><th>Defaulter</th><th>Amount</th><th>Loan type</th><th>Loan ID</th>
+      <th>Mock loan</th><th>First set</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in defaulters %}
+    <tr>
+      <td class="nowrap">{{ d.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td class="mono">{{ d.msisdn }}</td>
+      <td>{% if d.is_defaulter %}<span class="badge err">Yes</span>{% else %}<span class="badge ok">No</span>{% endif %}</td>
+      <td class="nowrap">{{ d.amount | ariary }}</td>
+      <td>{{ d.loan_type }}</td>
+      <td class="mono">{{ d.loan_ref or '' }}</td>
+      <td class="mono">{% if d.loan %}<a href="/loans?msisdn={{ d.msisdn | urlencode }}">{{ d.loan.transaction_id }}</a>{% endif %}</td>
+      <td class="nowrap">{{ d.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty">{% if msisdn %}No defaulter status for {{ msisdn }}.{% else %}No defaulter status received yet.{% endif %}</p>
+{% endif %}
+{% endblock %}

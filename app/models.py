@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
@@ -106,6 +106,34 @@ class Loan(Base):
             or self.status == self.STATUS_PENDING
             or (self.status == self.STATUS_FAILED and self.response_code is None)
         )
+
+
+class LoanDefaulter(Base):
+    """Statut defaulter d'un client pour un prêt, reçu de la banque (POST /topup-notification/v1/update/loans-defaulter).
+
+    Une ligne par (msisdn, type, id de prêt), mise à jour à chaque appel. L'id de prêt est facultatif.
+    """
+
+    __tablename__ = "loan_defaulter"
+
+    TYPE_OVERDRAFT = "OVERDRAFT"
+    TYPE_TERM = "TERM"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customer.id"), index=True)
+    msisdn: Mapped[str] = mapped_column(String(50), index=True)
+    loan_ref: Mapped[str | None] = mapped_column(String(50))  # loan_info.id
+    loan_type: Mapped[str] = mapped_column(String(20))
+    # Prêt du mock correspondant (TERM, loan_ref = loanId d'Apply Loan), s'il existe
+    loan_pk: Mapped[int | None] = mapped_column(ForeignKey("loan.id"))
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    is_defaulter: Mapped[bool] = mapped_column(Boolean)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    loan: Mapped["Loan | None"] = relationship()
 
 
 class AccessToken(Base):
