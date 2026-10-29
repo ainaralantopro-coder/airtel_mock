@@ -88,6 +88,10 @@ def send_repay_loan_status(db: Session, url: str, msisdn: str, transaction_id: s
     return _post_json(db, flow="repay_loan_status", url=url, msisdn=msisdn, payload=payload)
 
 
+def send_mini_statement(db: Session, url: str, msisdn: str) -> CallSent:
+    return _post_json(db, flow="mini_statement", url=url, msisdn=msisdn, payload={"msisdn": msisdn})
+
+
 def new_transaction_id() -> str:
     """Identifiant de transaction côté Airtel : APC + horodatage + 8 chiffres aléatoires."""
     return f"APC{datetime.now():%Y%m%d%H%M%S}{secrets.randbelow(10**8):08d}"
