@@ -17,7 +17,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import wallet
-from app.config import get_settings
 from app.database import get_db
 from app.errors import ApiError, autostrike_status
 from app.models import Autostrike, Customer, LoanDefaulter
@@ -28,6 +27,8 @@ from app.web import format_amount
 router = APIRouter(prefix="/standard/v1/loan", tags=["autostrike"], dependencies=[Depends(require_token)])
 
 _ID_ALPHABET = string.ascii_uppercase + string.digits
+# Receiver cité dans le message de réponse (valeur de l'exemple de la spec) ; aucun compte n'est crédité
+RECEIVER_MSISDN = "570487456"
 
 
 @router.post("/autostrike")
@@ -56,7 +57,7 @@ def autostrike(body: AutostrikeRequest, db: Session = Depends(get_db)):
         airtel_money_id=f"AUTOSTRK-{''.join(secrets.choice(_ID_ALPHABET) for _ in range(10))}-{transaction_id}",
     )
     transfer = f"transfer of {' '.join(filter(None, [record.currency, format_amount(amount)]))}"
-    parties = f"between the sender: {msisdn} and receiver: {get_settings().autostrike_collection_msisdn}"
+    parties = f"between the sender: {msisdn} and receiver: {RECEIVER_MSISDN}"
 
     def fail(reason: str) -> None:
         record.status = Autostrike.STATUS_FAILED

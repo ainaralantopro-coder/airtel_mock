@@ -147,13 +147,6 @@ def test_amount_as_number_and_without_currency(client, auth_headers, customer):
     assert r.json()["status"]["message"].startswith("transfer of 1000 completed successfully")
 
 
-def test_collection_msisdn_is_configurable(client, auth_headers, customer, monkeypatch):
-    from app.config import get_settings
-
-    monkeypatch.setattr(get_settings(), "autostrike_collection_msisdn", "340000000")
-    fund(client, customer, 5000)
-    assert "receiver: 340000000." in client.post(URL, json=body(), headers=auth_headers).json()["status"]["message"]
-
 
 def test_requires_token_and_is_logged(client, auth_headers, customer):
     r = client.post(URL, json=body())
