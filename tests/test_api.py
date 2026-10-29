@@ -1,5 +1,6 @@
 import re
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from io import BytesIO
 
 import httpx
@@ -13,6 +14,7 @@ from app import bank_client
 from app.config import get_settings
 from app.database import SessionLocal
 from app.models import AccessToken, CallReceive, CallSent, Customer, MessageSent
+from app.routers.users import format_amount
 from tests.conftest import ROOT
 
 NOTIFY_BODY = {"customer_msisdn": "997739692", "message": {"en": "Hello", "fr": "Bonjour", "es": "Hola"}}
@@ -106,6 +108,30 @@ def test_get_user_free_msisdn(client, auth_headers):
     r = client.get("/standard/v2/users/+261 34 12", headers=auth_headers)
     assert r.status_code == 200
     assert r.json()["data"]["msisdn"] == "+261 34 12"
+
+
+def test_balance_enquiry(client, auth_headers, customer):
+    r = client.get(f"/standard/v2/users/{customer}/balance", headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json() == {
+        "data": {"balance": "0"},
+        "status": {"code": "200", "message": "success", "result_code": "DP02200000001", "success": True},
+    }
+
+    client.post("/wallet/deposit", data={"msisdn": customer, "amount": "1000"})
+    r = client.get(f"/standard/v2/users/{customer}/balance", headers=auth_headers)
+    assert r.json()["data"] == {"balance": "1000"}
+
+
+def test_balance_format():
+    assert [format_amount(Decimal(v)) for v in ("1000.00", "0", "1000.50", "12.05")] == ["1000", "0", "1000.5", "12.05"]
+
+
+def test_balance_enquiry_unknown_user_and_token(client, auth_headers, customer):
+    r = client.get("/standard/v2/users/000/balance", headers=auth_headers)
+    assert r.status_code == 404
+    assert r.json()["data"] is None and r.json()["status"]["result_code"] == "DP02404000001"
+    assert client.get(f"/standard/v2/users/{customer}/balance").status_code == 401
 
 
 def test_get_user_requires_token(client, customer):

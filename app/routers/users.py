@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -38,3 +40,20 @@ def get_user(msisdn: str, db: Session = Depends(get_db)):
         },
         "status": users_status(200, "success"),
     }
+
+
+@router.get("/users/{msisdn}/balance")
+def get_balance(msisdn: str, db: Session = Depends(get_db)):
+    """Balance enquiry : solde du wallet du client."""
+    customer = db.scalar(select(Customer).where(Customer.msisdn == msisdn))
+    if customer is None:
+        raise ApiError(404, "User not found")
+
+    return {"data": {"balance": format_amount(customer.balance)}, "status": users_status(200, "success")}
+
+
+def format_amount(amount: Decimal) -> str:
+    """Montant en chaîne, comme dans la spec : "1000", ou "1000.5" s'il y a des décimales."""
+    if amount == amount.to_integral_value():
+        return str(int(amount))
+    return f"{amount.normalize():f}"
