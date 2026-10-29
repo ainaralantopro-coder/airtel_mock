@@ -66,7 +66,7 @@
     <tr>
       <td class="nowrap">{{ t.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
       <td class="mono">{{ t.reference }}</td>
-      <td>{% if t.type == 'DEPOSIT' %}<span class="badge ok">Deposit</span>{% else %}<span class="badge err">Withdrawal</span>{% endif %}</td>
+      <td>{% if t.type == 'DEPOSIT' %}<span class="badge ok">Deposit</span>{% elif t.type == 'AUTOSTRIKE' %}<span class="badge err">Autostrike</span>{% else %}<span class="badge err">Withdrawal</span>{% endif %}</td>
       <td class="nowrap">{{ '+' if t.type == 'DEPOSIT' else '−' }}{{ t.amount | ariary }}</td>
       <td class="nowrap">{{ t.balance_after | ariary }}</td>
       <td>{{ t.description or '' }}</td>

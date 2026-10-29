@@ -38,14 +38,32 @@ def test_same_loan_is_updated_not_duplicated(client, auth_headers, customer):
     [d] = defaulters()
     assert (d.amount, d.is_defaulter) == (Decimal("0"), False)
 
-    client.post(URL, json=body(loan_type="TERM"), headers=auth_headers)  # même id, autre type
-    client.post(URL, json=body(loan_id=None), headers=auth_headers)  # sans id
+    # Un prêt après l'autre (un seul prêt actif à la fois)
+    assert client.post(URL, json=body(loan_type="TERM"), headers=auth_headers).json() == SUCCESS  # même id, autre type
+    client.post(URL, json=body(loan_type="TERM", amount=0, status=False), headers=auth_headers)
+    assert client.post(URL, json=body(loan_id=None), headers=auth_headers).json() == SUCCESS  # sans id
     client.post(URL, json=body(loan_id=None, amount="150.50"), headers=auth_headers)
     assert [(d.loan_type, d.loan_ref, d.amount) for d in defaulters()] == [
         ("OVERDRAFT", "LN001", Decimal("0")),
-        ("TERM", "LN001", Decimal("400")),
+        ("TERM", "LN001", Decimal("0")),
         ("OVERDRAFT", None, Decimal("150.50")),
     ]
+
+
+def test_second_active_defaulted_loan_refused(client, auth_headers, customer):
+    client.post(URL, json=body(loan_id="LN001"), headers=auth_headers)
+    r = client.post(URL, json=body(loan_id="LN002", loan_type="TERM"), headers=auth_headers)
+    assert r.status_code == 409
+    assert r.json() == {"status": {"response_code": "DP02810004091", "code": "409", "success": False,
+                                   "message": "Customer already has an active defaulted loan"}}
+
+    # Le prêt actif reste modifiable, et l'autre prêt peut être déclaré non defaulter
+    assert client.post(URL, json=body(loan_id="LN001", amount="300"), headers=auth_headers).json() == SUCCESS
+    assert client.post(URL, json=body(loan_id="LN002", status=False), headers=auth_headers).json() == SUCCESS
+    # Une fois le premier levé, un autre prêt peut passer en défaut
+    client.post(URL, json=body(loan_id="LN001", status=False), headers=auth_headers)
+    assert client.post(URL, json=body(loan_id="LN002", loan_type="TERM"), headers=auth_headers).json() == SUCCESS
+    assert [d.is_defaulter for d in defaulters()] == [False, False, True]
 
 
 @pytest.mark.parametrize("loan_info", [{"type": "TERM"}, {"id": None, "type": "TERM"}, {"id": " ", "type": "TERM"}])

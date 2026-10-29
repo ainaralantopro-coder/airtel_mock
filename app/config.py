@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     bank_cancel_loan_path: str = ""
     bank_timeout_seconds: float = 30.0
 
+    # Compte de collecte de la banque, cité comme receiver dans le message de l'autostrike (pas de crédit)
+    autostrike_collection_msisdn: str = "570487456"
+
     @property
     def bank_opt_in_url(self) -> str | None:
         return self._bank_url(self.bank_opt_in_path)

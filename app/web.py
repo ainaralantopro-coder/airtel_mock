@@ -20,4 +20,11 @@ def format_ariary(value) -> str:
     return "Ar " + text.replace(",", " ")
 
 
+def format_amount(amount: Decimal) -> str:
+    """Montant en chaîne pour les API : "1000", ou "1000.5" s'il y a des décimales."""
+    if amount == amount.to_integral_value():
+        return str(int(amount))
+    return f"{amount.normalize():f}"
+
+
 templates.env.filters["ariary"] = format_ariary

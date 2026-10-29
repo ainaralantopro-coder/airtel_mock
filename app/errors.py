@@ -1,7 +1,7 @@
 """Réponses d'erreur des API exposées à la banque.
 
 Seuls les codes de succès sont connus (DP02200000001 pour users, DP02800001001 pour notify et
-txn/enquiry, DP02810001001 pour loans-defaulter).
+txn/enquiry, DP02810001001 pour loans-defaulter, DP03620001001 / ESB000010 pour autostrike).
 Les codes d'erreur ci-dessous sont des valeurs du mock, à remplacer si la spec réelle les fournit.
 """
 
@@ -30,13 +30,26 @@ TOPUP_RESPONSE_CODES = {
     400: "DP02810004001",
     401: "DP02810004011",
     404: "DP02810004041",
+    409: "DP02810004091",
     500: "DP02810005001",
 }
+
+AUTOSTRIKE_RESPONSE_CODES = {
+    200: "DP03620001001",
+    400: "DP03620004001",
+    401: "DP03620004011",
+    404: "DP03620004041",
+    409: "DP03620004091",
+    500: "DP03620005001",
+}
+AUTOSTRIKE_RESULT_SUCCESS = "ESB000010"
+AUTOSTRIKE_RESULT_FAILURE = "ESB000001"
 
 AUTH_PATH_PREFIX = "/auth"
 USERS_PATH_PREFIX = "/standard"
 NOTIFY_PATH_PREFIX = "/term-loans"
 TOPUP_PATH_PREFIX = "/topup-notification"
+AUTOSTRIKE_PATH_PREFIX = "/standard/v1/loan"  # sous /standard, mais avec sa propre enveloppe
 # API à enveloppe {"status": ...} : erreurs de validation et erreurs internes au même format
 ENVELOPE_PATH_PREFIXES = (USERS_PATH_PREFIX, NOTIFY_PATH_PREFIX, TOPUP_PATH_PREFIX)
 PARTNER_PATH_PREFIXES = (AUTH_PATH_PREFIX, *ENVELOPE_PATH_PREFIXES)
@@ -85,7 +98,26 @@ def topup_status(code: int, message: str) -> dict:
     }
 
 
+def autostrike_status(code: int, message: str, success: bool | None = None) -> dict:
+    """Enveloppe de l'autostrike. success=False avec code 200 : demande traitée mais transaction échouée (TF)."""
+    success = code == 200 if success is None else success
+    if code == 200 and not success:
+        response_code = "DP03620001002"
+    else:
+        response_code = AUTOSTRIKE_RESPONSE_CODES.get(code, AUTOSTRIKE_RESPONSE_CODES[500])
+    return {
+        "response_code": response_code,
+        "code": str(code),
+        "success": success,
+        "result_code": AUTOSTRIKE_RESULT_SUCCESS if success else AUTOSTRIKE_RESULT_FAILURE,
+        "message": message,
+    }
+
+
 def error_response(request: Request, status_code: int, message: str, headers=None) -> JSONResponse:
+    if request.url.path.startswith(AUTOSTRIKE_PATH_PREFIX):
+        status = autostrike_status(status_code, message)
+        return JSONResponse(status_code=status_code, content={"data": None, "status": status}, headers=headers)
     if request.url.path.startswith(TOPUP_PATH_PREFIX):
         # Pas de "data" dans les réponses de cette API, succès compris
         content = {"status": topup_status(status_code, message)}

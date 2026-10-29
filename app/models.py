@@ -42,12 +42,13 @@ class Customer(Base):
 
 
 class WalletTransaction(Base):
-    """Mouvement sur le wallet d'un client : dépôt (crédit) ou retrait (débit)."""
+    """Mouvement sur le wallet d'un client : dépôt (crédit), retrait ou autostrike (débits)."""
 
     __tablename__ = "wallet_transaction"
 
     TYPE_DEPOSIT = "DEPOSIT"
     TYPE_WITHDRAWAL = "WITHDRAWAL"
+    TYPE_AUTOSTRIKE = "AUTOSTRIKE"  # prélèvement de recouvrement demandé par la banque
 
     id: Mapped[int] = mapped_column(primary_key=True)
     customer_id: Mapped[int] = mapped_column(ForeignKey("customer.id"), index=True)
@@ -156,6 +157,33 @@ class LoanDefaulter(Base):
     )
 
     loan: Mapped["Loan | None"] = relationship()
+
+
+class Autostrike(Base):
+    """Demande d'autostrike reçue de la banque (POST /standard/v1/loan/autostrike), réussie ou non.
+
+    Sert aussi à rejouer la même réponse si la banque renvoie le même transaction.id (retry).
+    """
+
+    __tablename__ = "autostrike"
+
+    STATUS_SUCCESS = "TS"
+    STATUS_FAILED = "TF"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    transaction_id: Mapped[str] = mapped_column(String(100), unique=True, index=True)  # transaction.id
+    reference: Mapped[str] = mapped_column(String(100))  # reference de la banque
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customer.id"), index=True)
+    msisdn: Mapped[str] = mapped_column(String(50), index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    currency: Mapped[str | None] = mapped_column(String(10))
+    country: Mapped[str | None] = mapped_column(String(10))
+    status: Mapped[str] = mapped_column(String(5))
+    reference_id: Mapped[str] = mapped_column(String(20), unique=True)  # Txn ID Airtel
+    airtel_money_id: Mapped[str] = mapped_column(String(150))
+    message: Mapped[str] = mapped_column(Text)
+    wallet_transaction_id: Mapped[int | None] = mapped_column(ForeignKey("wallet_transaction.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class AccessToken(Base):

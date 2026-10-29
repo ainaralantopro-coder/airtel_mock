@@ -23,6 +23,10 @@ class WalletError(Exception):
     """Opération refusée (montant invalide, solde insuffisant) : rien n'a été modifié."""
 
 
+class InsufficientBalance(WalletError):
+    """Débit supérieur au solde disponible."""
+
+
 def parse_amount(text: str) -> Decimal:
     """Montant saisi en Ariary : nombre entier strictement positif."""
     try:
@@ -44,7 +48,15 @@ def withdraw(db: Session, customer_id: int, amount: Decimal, description: str | 
     return _move(db, customer_id, WalletTransaction.TYPE_WITHDRAWAL, amount, description)
 
 
-def _move(db: Session, customer_id: int, type_: str, amount: Decimal, description: str | None) -> WalletTransaction:
+def autostrike(db: Session, customer_id: int, amount: Decimal, description: str | None = None) -> WalletTransaction:
+    """Prélèvement de recouvrement demandé par la banque. Ne valide pas la transaction : l'appelant enregistre
+    sa propre trace puis fait db.commit(), pour que débit et trace soient écrits ensemble."""
+    return _move(db, customer_id, WalletTransaction.TYPE_AUTOSTRIKE, amount, description, commit=False)
+
+
+def _move(
+    db: Session, customer_id: int, type_: str, amount: Decimal, description: str | None, commit: bool = True
+) -> WalletTransaction:
     if amount <= 0:
         raise WalletError("The amount must be greater than 0.")
     if amount >= MAX_AMOUNT:
@@ -69,7 +81,7 @@ def _move(db: Session, customer_id: int, type_: str, amount: Decimal, descriptio
         balance = customer.balance - amount
         if balance < 0:
             db.rollback()  # libère le verrou
-            raise WalletError(
+            raise InsufficientBalance(
                 f"Insufficient balance: {format_ariary(customer.balance)} available, "
                 f"{format_ariary(amount)} requested."
             )
@@ -85,7 +97,10 @@ def _move(db: Session, customer_id: int, type_: str, amount: Decimal, descriptio
         description=description,
     )
     db.add(transaction)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return transaction
 
 

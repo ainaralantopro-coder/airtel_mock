@@ -14,7 +14,7 @@ from app import bank_client
 from app.config import get_settings
 from app.database import SessionLocal
 from app.models import AccessToken, CallReceive, CallSent, Customer, MessageSent
-from app.routers.users import format_amount
+from app.web import format_amount
 from tests.conftest import ROOT
 
 NOTIFY_BODY = {"customer_msisdn": "997739692", "message": {"en": "Hello", "fr": "Bonjour", "es": "Hola"}}

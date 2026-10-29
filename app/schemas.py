@@ -122,3 +122,66 @@ class DefaulterRequest(BaseModel):
     loan_info: DefaulterLoanInfo
     beneficiary: DefaulterBeneficiary
     defaulter_info: DefaulterInfo
+
+
+AUTOSTRIKE_MAX_AMOUNT = Decimal(10) ** 15  # même plafond que les opérations wallet
+
+
+class AutostrikeSubscriber(BaseModel):
+    msisdn: str
+    country: str | None = None
+    currency: str | None = None
+
+    @field_validator("msisdn")
+    @classmethod
+    def check_msisdn(cls, value: str) -> str:
+        value = value.strip()
+        if not is_valid_msisdn(value):
+            raise ValueError(f"msisdn must be 1 to {MSISDN_MAX_LENGTH} characters")
+        return value
+
+
+class AutostrikeTransaction(BaseModel):
+    id: str = Field(max_length=100)
+    amount: Decimal
+    country: str | None = None
+    currency: str | None = None
+
+    @field_validator("id")
+    @classmethod
+    def check_id(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be empty")
+        return value
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def parse_amount(cls, value):
+        # Chaîne ("1000") comme dans la spec, ou nombre ; jamais un booléen
+        if isinstance(value, bool) or not isinstance(value, (str, int, float)):
+            raise ValueError("amount must be a number or a numeric string")
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("amount")
+    @classmethod
+    def check_amount(cls, value: Decimal) -> Decimal:
+        if not value.is_finite() or value <= 0 or value != value.to_integral_value():
+            raise ValueError("amount must be a whole number greater than 0")
+        if value >= AUTOSTRIKE_MAX_AMOUNT:
+            raise ValueError(f"amount must be less than {AUTOSTRIKE_MAX_AMOUNT:f}")
+        return value
+
+
+class AutostrikeRequest(BaseModel):
+    reference: str = Field(max_length=100)
+    subscriber: AutostrikeSubscriber
+    transaction: AutostrikeTransaction
+
+    @field_validator("reference")
+    @classmethod
+    def check_reference(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be empty")
+        return value

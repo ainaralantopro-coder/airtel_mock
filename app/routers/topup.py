@@ -33,6 +33,16 @@ def set_defaulter_status(body: DefaulterRequest, db: Session = Depends(get_db)):
             LoanDefaulter.msisdn == msisdn, LoanDefaulter.loan_type == loan_type, ref_filter
         )
     )
+    if body.defaulter_info.status:
+        # Un seul prêt actif à la fois : pas de second prêt en défaut pour ce client
+        other_active = select(LoanDefaulter.id).where(
+            LoanDefaulter.msisdn == msisdn, LoanDefaulter.is_defaulter.is_(True)
+        )
+        if defaulter is not None:
+            other_active = other_active.where(LoanDefaulter.id != defaulter.id)
+        if db.scalar(other_active.limit(1)) is not None:
+            raise ApiError(409, "Customer already has an active defaulted loan")
+
     if defaulter is None:
         defaulter = LoanDefaulter(customer_id=customer.id, msisdn=msisdn, loan_ref=loan_ref, loan_type=loan_type)
         db.add(defaulter)
