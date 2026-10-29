@@ -32,10 +32,32 @@ class Customer(Base):
     opted_in: Mapped[bool] = mapped_column(Boolean, default=False)
     opted_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # Solde du wallet Mobile Money, modifié uniquement via app/wallet.py (une WalletTransaction par mouvement)
+    balance: Mapped[Decimal] = mapped_column(Numeric(18, 2), default=Decimal(0), server_default="0")
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class WalletTransaction(Base):
+    """Mouvement sur le wallet d'un client : dépôt (crédit) ou retrait (débit)."""
+
+    __tablename__ = "wallet_transaction"
+
+    TYPE_DEPOSIT = "DEPOSIT"
+    TYPE_WITHDRAWAL = "WITHDRAWAL"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customer.id"), index=True)
+    msisdn: Mapped[str] = mapped_column(String(50), index=True)
+    reference: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    type: Mapped[str] = mapped_column(String(20))
+    amount: Mapped[Decimal] = mapped_column(Numeric(18, 2))  # toujours positif, le sens est donné par type
+    balance_after: Mapped[Decimal] = mapped_column(Numeric(18, 2))
+    description: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class MessageSent(Base):

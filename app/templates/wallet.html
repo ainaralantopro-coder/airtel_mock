@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Wallet · Airtel Money mock{% endblock %}
+{% block content %}
+<h1>Wallet</h1>
+<form method="get" class="inline-form">
+  <input name="msisdn" value="{{ msisdn }}" required maxlength="50" placeholder="MSISDN">
+  <button type="submit">Search</button>
+</form>
+
+{% if msisdn and not customer %}
+<p class="alert error">No customer with MSISDN {{ msisdn }}.</p>
+{% endif %}
+
+{% if customer %}
+<section class="wallet-summary">
+  <div>
+    <div class="hint">{{ customer.first_name }} {{ customer.last_name }} · <span class="mono">{{ customer.msisdn }}</span></div>
+    <div class="wallet-balance">{{ customer.balance | ariary }}</div>
+  </div>
+</section>
+
+{% if done %}
+<p class="alert success">
+  {{ 'Deposit' if done.type == 'DEPOSIT' else 'Withdrawal' }} of {{ done.amount | ariary }} done
+  (<span class="mono">{{ done.reference }}</span>). New balance: {{ done.balance_after | ariary }}.
+</p>
+{% endif %}
+
+<div class="wallet-ops">
+  <form method="post" action="/wallet/deposit" class="card">
+    <h2>Deposit</h2>
+    <input type="hidden" name="msisdn" value="{{ customer.msisdn }}">
+    <label class="field">Amount (Ar)
+      <input type="number" name="amount" value="{{ deposit_values.amount or '' }}" required min="1" step="1">
+    </label>
+    <label class="field">Description (optional)
+      <input name="description" value="{{ deposit_values.description or '' }}" maxlength="255">
+    </label>
+    {% if deposit_error %}<p class="alert error">{{ deposit_error }}</p>{% endif %}
+    <button type="submit">Deposit</button>
+  </form>
+
+  <form method="post" action="/wallet/withdraw" class="card">
+    <h2>Withdraw</h2>
+    <input type="hidden" name="msisdn" value="{{ customer.msisdn }}">
+    <label class="field">Amount (Ar)
+      <input type="number" name="amount" value="{{ withdraw_values.amount or '' }}" required min="1" step="1">
+    </label>
+    <label class="field">Description (optional)
+      <input name="description" value="{{ withdraw_values.description or '' }}" maxlength="255">
+    </label>
+    {% if withdraw_error %}<p class="alert error">{{ withdraw_error }}</p>{% endif %}
+    <button type="submit" class="secondary">Withdraw</button>
+  </form>
+</div>
+
+<h2>History</h2>
+{% if transactions %}
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>Date</th><th>Reference</th><th>Type</th><th>Amount</th><th>Balance after</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    {% for t in transactions %}
+    <tr>
+      <td class="nowrap">{{ t.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td class="mono">{{ t.reference }}</td>
+      <td>{% if t.type == 'DEPOSIT' %}<span class="badge ok">Deposit</span>{% else %}<span class="badge err">Withdrawal</span>{% endif %}</td>
+      <td class="nowrap">{{ '+' if t.type == 'DEPOSIT' else '−' }}{{ t.amount | ariary }}</td>
+      <td class="nowrap">{{ t.balance_after | ariary }}</td>
+      <td>{{ t.description or '' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if transactions | length == history_limit %}<p class="hint">Last {{ history_limit }} operations shown.</p>{% endif %}
+{% else %}
+<p class="empty">No operation yet.</p>
+{% endif %}
+{% endif %}
+{% endblock %}

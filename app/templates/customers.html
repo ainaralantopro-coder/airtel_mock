@@ -14,7 +14,7 @@
   <thead>
     <tr>
       <th>MSISDN</th><th>Name</th><th>Date of birth</th><th>ID number</th>
-      <th>Grade</th><th>Barred</th><th>PIN</th><th>Account</th><th>Opted-in</th><th></th>
+      <th>Grade</th><th>Barred</th><th>PIN</th><th>Account</th><th>Opted-in</th><th>Balance</th><th></th>
     </tr>
   </thead>
   <tbody>
@@ -29,9 +29,11 @@
       <td>{{ 'Yes' if c.is_pin_set else 'No' }}</td>
       <td>{{ c.account_status }}</td>
       <td>{% if c.opted_in %}<span class="badge ok">Yes</span>{% else %}<span class="badge">No</span>{% endif %}</td>
+      <td class="nowrap">{{ c.balance | ariary }}</td>
       <td class="actions">
         <a href="/register?msisdn={{ c.msisdn }}">Register</a>
         <a href="/messages?msisdn={{ c.msisdn }}">Messages</a>
+        <a href="/wallet?msisdn={{ c.msisdn | urlencode }}">Wallet</a>
       </td>
     </tr>
     {% endfor %}

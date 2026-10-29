@@ -144,3 +144,11 @@ pre {
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+.wallet-summary { margin: 8px 0 16px; }
+.wallet-balance { font-size: 2rem; font-weight: 600; }
+.wallet-ops { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; max-width: 760px; margin-bottom: 24px; }
+.card { display: flex; flex-direction: column; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.card h2 { margin: 0; font-size: 1.1rem; }
+.card button { align-self: flex-start; }
+.card .alert { margin: 0; }
