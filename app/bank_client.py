@@ -73,11 +73,17 @@ def send_lookup_details(db: Session, url: str, msisdn: str) -> CallSent:
 def send_repay_loan(
     db: Session, url: str, msisdn: str, repayment_amount: str, transaction_id: str, loan_id: str
 ) -> CallSent:
+    # payload = {
+    #     "repaymentAmount": repayment_amount,
+    #     "msisdn": msisdn,
+    #     "transactionId": transaction_id,
+    #     "loanId": loan_id,
+    # }
+
     payload = {
-        "repaymentAmount": repayment_amount,
-        "msisdn": msisdn,
-        "transactionId": transaction_id,
+        "amount": repayment_amount,
         "loanId": loan_id,
+        "msisdn": msisdn,
     }
     return _post_json(db, flow="repay_loan", url=url, msisdn=msisdn, payload=payload)
 
