@@ -37,7 +37,7 @@ def bank(monkeypatch):
 
 def set_defaulter(client, auth_headers, msisdn, status=True):
     payload = {"loan_info": {"id": "LN001", "type": "TERM"}, "beneficiary": {"msisdn": msisdn},
-               "defaulter_info": {"amount": "1000", "status": status}}
+               "defaulter_info": {"amount": "1000" if status else "0", "status": status}}
     assert client.post(DEFAULTER_URL, json=payload, headers=auth_headers).status_code == 200
 
 

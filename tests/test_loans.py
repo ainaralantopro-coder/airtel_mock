@@ -78,7 +78,7 @@ def test_eligibility_shows_offer(client, bank):
     bank["responses"]["/eligibility"] = (200, ELIGIBLE)
     r = client.post("/loans/borrow/eligibility", data={"msisdn": MSISDN})
     assert r.status_code == 200
-    assert bank["requests"] == [("/eligibility", {"msisdn": MSISDN, "loanAmount": None})]
+    assert bank["requests"] == [("/eligibility", {"msisdn": MSISDN})]
     assert "Borrow up to <strong>Ar 100 000</strong>" in r.text
     assert "Eligible amount: <strong>Ar 50 000</strong>" in r.text
     assert 'name="amount" value="5000"' in r.text

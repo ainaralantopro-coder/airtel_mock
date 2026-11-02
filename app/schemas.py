@@ -117,6 +117,15 @@ class DefaulterInfo(BaseModel):
             raise ValueError("amount must be a number >= 0")
         return value
 
+    @model_validator(mode="after")
+    def check_amount_matches_status(self) -> "DefaulterInfo":
+        # En défaut : il reste une dette ; défaut levé : plus rien n'est dû
+        if self.status and self.amount == 0:
+            raise ValueError("amount must be greater than 0 when status is true")
+        if not self.status and self.amount > 0:
+            raise ValueError("amount must be 0 when status is false")
+        return self
+
 
 class DefaulterRequest(BaseModel):
     loan_info: DefaulterLoanInfo

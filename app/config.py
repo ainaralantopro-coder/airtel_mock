@@ -12,7 +12,12 @@ class Settings(BaseSettings):
     client_secret: str
     token_ttl_seconds: int = 180
 
+    # Banque : un microservice (donc un port) par famille d'endpoints. Une base vide reprend bank_base_url.
     bank_base_url: str = ""
+    bank_subscription_base_url: str = ""  # subscription-service : opt-in
+    bank_origination_base_url: str = ""  # origination-service : éligibilité, prêt, statut, confirm, cancel
+    bank_repayment_base_url: str = ""  # repayment-service : lookup, remboursement, statut
+    bank_collection_base_url: str = ""  # collection-service : mini-statement, balance enquiry, top-up notification
     bank_opt_in_path: str = ""
     bank_check_eligibility_path: str = ""
     bank_apply_loan_path: str = ""
@@ -29,57 +34,61 @@ class Settings(BaseSettings):
 
     @property
     def bank_opt_in_url(self) -> str | None:
-        return self._bank_url(self.bank_opt_in_path)
+        return self._bank_url(self.bank_subscription_base_url, self.bank_opt_in_path)
 
     @property
     def bank_check_eligibility_url(self) -> str | None:
-        return self._bank_url(self.bank_check_eligibility_path)
+        return self._bank_url(self.bank_origination_base_url, self.bank_check_eligibility_path)
 
     @property
     def bank_apply_loan_url(self) -> str | None:
-        return self._bank_url(self.bank_apply_loan_path)
+        return self._bank_url(self.bank_origination_base_url, self.bank_apply_loan_path)
 
     @property
     def bank_apply_loan_status_url(self) -> str | None:
-        return self._bank_url(self.bank_apply_loan_status_path)
+        return self._bank_url(self.bank_origination_base_url, self.bank_apply_loan_status_path)
 
     @property
     def bank_confirm_loan_url(self) -> str | None:
-        return self._bank_url(self.bank_confirm_loan_path)
+        return self._bank_url(self.bank_origination_base_url, self.bank_confirm_loan_path)
 
     @property
     def bank_cancel_loan_url(self) -> str | None:
-        return self._bank_url(self.bank_cancel_loan_path)
+        return self._bank_url(self.bank_origination_base_url, self.bank_cancel_loan_path)
 
     @property
     def bank_topup_notification_url(self) -> str | None:
-        return self._bank_url(self.bank_topup_notification_path)
+        return self._bank_url(self.bank_collection_base_url, self.bank_topup_notification_path)
 
     @property
     def bank_lookup_details_url(self) -> str | None:
-        return self._bank_url(self.bank_lookup_details_path)
+        return self._bank_url(self.bank_repayment_base_url, self.bank_lookup_details_path)
 
     @property
     def bank_repay_loan_url(self) -> str | None:
-        return self._bank_url(self.bank_repay_loan_path)
+        return self._bank_url(self.bank_repayment_base_url, self.bank_repay_loan_path)
 
     @property
     def bank_repay_loan_status_url(self) -> str | None:
-        return self._bank_url(self.bank_repay_loan_status_path)
+        return self._bank_url(self.bank_repayment_base_url, self.bank_repay_loan_status_path)
 
     @property
     def bank_mini_statement_url(self) -> str | None:
-        return self._bank_url(self.bank_mini_statement_path)
+        return self._bank_url(self.bank_collection_base_url, self.bank_mini_statement_path)
 
     @property
     def bank_balance_enquiry_url(self) -> str | None:
-        return self._bank_url(self.bank_balance_enquiry_path)
+        return self._bank_url(self.bank_collection_base_url, self.bank_balance_enquiry_path)
 
-    def _bank_url(self, path: str) -> str | None:
-        """URL complète d'un endpoint de la banque, ou None tant qu'il n'est pas configuré."""
-        if not self.bank_base_url or not path:
+    def _bank_url(self, service_base_url: str, path: str) -> str | None:
+        """URL complète d'un endpoint de la banque, ou None tant qu'il n'est pas configuré.
+
+        La base du microservice concerné est prise si elle est renseignée, sinon bank_base_url.
+        """
+        base_url = service_base_url or self.bank_base_url
+        if not base_url or not path:
             return None
-        return self.bank_base_url.rstrip("/") + "/" + path.lstrip("/")
+        return base_url.rstrip("/") + "/" + path.lstrip("/")
 
 
 @lru_cache

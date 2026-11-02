@@ -106,7 +106,7 @@ async def register_submit(request: Request, db: Session = Depends(get_db)):
 
     if opt_in_url is None:
         context["error"] = (
-            "Cannot send the request: BANK_BASE_URL and BANK_OPT_IN_PATH "
+            "Cannot send the request: BANK_SUBSCRIPTION_BASE_URL (or BANK_BASE_URL) and BANK_OPT_IN_PATH "
             "must be set in .env."
         )
         return templates.TemplateResponse(request, "register.html", context, status_code=503)

@@ -59,9 +59,9 @@ def test_second_active_defaulted_loan_refused(client, auth_headers, customer):
 
     # Le prêt actif reste modifiable, et l'autre prêt peut être déclaré non defaulter
     assert client.post(URL, json=body(loan_id="LN001", amount="300"), headers=auth_headers).json() == SUCCESS
-    assert client.post(URL, json=body(loan_id="LN002", status=False), headers=auth_headers).json() == SUCCESS
+    assert client.post(URL, json=body(loan_id="LN002", amount=0, status=False), headers=auth_headers).json() == SUCCESS
     # Une fois le premier levé, un autre prêt peut passer en défaut
-    client.post(URL, json=body(loan_id="LN001", status=False), headers=auth_headers)
+    client.post(URL, json=body(loan_id="LN001", amount=0, status=False), headers=auth_headers)
     assert client.post(URL, json=body(loan_id="LN002", loan_type="TERM"), headers=auth_headers).json() == SUCCESS
     assert [d.is_defaulter for d in defaulters()] == [False, False, True]
 
@@ -104,6 +104,8 @@ def test_unknown_customer(client, auth_headers):
         {"defaulter_info": {"amount": "400", "status": "true"}},
         {"defaulter_info": {"amount": "400"}},
         {"defaulter_info": {"amount": "-1", "status": True}},
+        {"defaulter_info": {"amount": "400", "status": False}},  # défaut levé avec un montant dû
+        {"defaulter_info": {"amount": "0", "status": True}},  # en défaut sans montant
         {"defaulter_info": {"amount": "abc", "status": True}},
         {"defaulter_info": {"status": True}},
         {"beneficiary": {"msisdn": ""}},

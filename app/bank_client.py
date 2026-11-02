@@ -19,7 +19,6 @@ def send_opt_in(db: Session, url: str, msisdn: str) -> CallSent:
 
 
 def send_check_eligibility(db: Session, url: str, msisdn: str) -> CallSent:
-    # loanAmount : not mandatory
     payload = {"msisdn": msisdn}
     return _post_json(db, flow="check_eligibility", url=url, msisdn=msisdn, payload=payload)
 

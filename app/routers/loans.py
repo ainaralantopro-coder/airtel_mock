@@ -62,7 +62,7 @@ async def check_eligibility(request: Request, db: Session = Depends(get_db)):
 
     if context["eligibility_url"] is None or context["apply_url"] is None:
         context["error"] = (
-            "BANK_BASE_URL, BANK_CHECK_ELIGIBILITY_PATH and BANK_APPLY_LOAN_PATH "
+            "BANK_ORIGINATION_BASE_URL (or BANK_BASE_URL), BANK_CHECK_ELIGIBILITY_PATH and BANK_APPLY_LOAN_PATH "
             "must be set in .env."
         )
         return templates.TemplateResponse(request, "borrow.html", context, status_code=503)
