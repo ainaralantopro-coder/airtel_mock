@@ -58,7 +58,7 @@ def send_topup_notification(
 ) -> CallSent:
     payload = {
         "msisdn": msisdn,
-        "topUpAmount": top_up_amount,
+        "amount": top_up_amount,
         "transactionId": transaction_id,
         # "transactionTimestamp": transaction_timestamp,
         # "availableBalanceAmount": available_balance_amount,
