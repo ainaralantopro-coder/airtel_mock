@@ -60,8 +60,8 @@ def send_topup_notification(
         "msisdn": msisdn,
         "topUpAmount": top_up_amount,
         "transactionId": transaction_id,
-        "transactionTimestamp": transaction_timestamp,
-        "availableBalanceAmount": available_balance_amount,
+        # "transactionTimestamp": transaction_timestamp,
+        # "availableBalanceAmount": available_balance_amount,
     }
     return _post_json(db, flow="topup_notification", url=url, msisdn=msisdn, payload=payload)
 
