@@ -71,7 +71,7 @@ def send_lookup_details(db: Session, url: str, msisdn: str) -> CallSent:
 
 
 def send_repay_loan(
-    db: Session, url: str, msisdn: str, repayment_amount: str, transaction_id: str, loan_id: str
+    db: Session, url: str, msisdn: str, repayment_amount: int, transaction_id: str, loan_id: str
 ) -> CallSent:
     # payload = {
     #     "repaymentAmount": repayment_amount,

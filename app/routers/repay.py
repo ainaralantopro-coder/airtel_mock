@@ -126,7 +126,7 @@ async def pay(request: Request, db: Session = Depends(get_db)):
     transaction_id = new_transaction_id()
     with SessionLocal() as log_db:  # journal dans sa propre transaction : le verrou du payeur est conservé
         call = send_repay_loan(
-            log_db, context["repay_url"], borrower, format_amount(Decimal(amount)), transaction_id, offer["loan_id"]
+            log_db, context["repay_url"], borrower, amount, transaction_id, offer["loan_id"]
         )
         body = response_json(call)
         repayment = LoanRepayment(
