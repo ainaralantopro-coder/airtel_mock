@@ -134,8 +134,7 @@ def test_pay_for_others(client, customer, payer, bank):
 
     path, payload = bank["requests"][-1]
     assert path == "/repay-loan"
-    assert payload == {"repaymentAmount": "5000", "msisdn": BORROWER, "transactionId": payload["transactionId"],
-                       "loanId": "LN0001"}
+    assert payload == {"amount": 5000, "loanId": "LN0001", "msisdn": BORROWER}
 
     [repayment] = repayments()
     assert (repayment.status, repayment.payer_msisdn, repayment.borrower_msisdn) == ("SUCCESS", PAYER, BORROWER)

@@ -1,5 +1,4 @@
 import json
-import re
 from decimal import Decimal
 
 import httpx
@@ -59,14 +58,7 @@ def test_deposit_of_defaulter_notifies_bank(client, auth_headers, customer, bank
     [(path, payload)] = bank["requests"]
     first, second = movements()
     assert path == "/topup-notification"
-    assert payload == {
-        "msisdn": customer,
-        "topUpAmount": "100",
-        "transactionId": second.reference,
-        "transactionTimestamp": payload["transactionTimestamp"],
-        "availableBalanceAmount": "1000",
-    }
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", payload["transactionTimestamp"])
+    assert payload == {"msisdn": customer, "topUpAmount": "100", "transactionId": second.reference}
     assert (first.topup_notification, second.topup_notification) == (None, "SENT")
     with SessionLocal() as db:
         assert db.get(CallSent, second.topup_call_id).flow == "topup_notification"

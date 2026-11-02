@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     bank_subscription_base_url: str = ""  # subscription-service : opt-in
     bank_origination_base_url: str = ""  # origination-service : éligibilité, prêt, statut, confirm, cancel
     bank_repayment_base_url: str = ""  # repayment-service : lookup, remboursement, statut
-    bank_collection_base_url: str = ""  # collection-service : mini-statement, balance enquiry, top-up notification
+    bank_collection_base_url: str = ""  # collection-service : mini-statement, balance enquiry
+    bank_connector_base_url: str = ""  # airtel-connector : top-up notification
     bank_opt_in_path: str = ""
     bank_check_eligibility_path: str = ""
     bank_apply_loan_path: str = ""
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
 
     @property
     def bank_topup_notification_url(self) -> str | None:
-        return self._bank_url(self.bank_collection_base_url, self.bank_topup_notification_path)
+        return self._bank_url(self.bank_connector_base_url, self.bank_topup_notification_path)
 
     @property
     def bank_lookup_details_url(self) -> str | None:
