@@ -1,0 +1,59 @@
+openapi: 3.0.3
+info:
+  title: Balance enquiry
+  version: "1.0"
+servers:
+  - url: http://192.168.123.97:8001
+paths:
+  /standard/v2/users/{msisdn}/balance:
+    get:
+      summary: Balance enquiry
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: msisdn
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "997739692"
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              example:
+                data:
+                  balance: "1000"
+                status:
+                  code: "200"
+                  message: success
+                  result_code: DP02200000001
+                  success: true
+        "401":
+          description: Missing, invalid or expired token
+          content:
+            application/json:
+              example:
+                data: null
+                status:
+                  code: "401"
+                  message: Invalid access token
+                  result_code: DP02401000001
+                  success: false
+        "404":
+          description: Unknown MSISDN
+          content:
+            application/json:
+              example:
+                data: null
+                status:
+                  code: "404"
+                  message: User not found
+                  result_code: DP02404000001
+                  success: false
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

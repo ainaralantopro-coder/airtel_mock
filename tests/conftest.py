@@ -21,6 +21,7 @@ os.environ["BANK_LOOKUP_DETAILS_PATH"] = "/lookup-details"
 os.environ["BANK_REPAY_LOAN_PATH"] = "/repay-loan"
 os.environ["BANK_REPAY_LOAN_STATUS_PATH"] = "/repay-loan-status"
 os.environ["BANK_MINI_STATEMENT_PATH"] = "/mini-statement"
+os.environ["BANK_BALANCE_ENQUIRY_PATH"] = "/balance-enquiry"
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402

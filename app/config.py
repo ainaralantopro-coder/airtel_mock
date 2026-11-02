@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     bank_repay_loan_path: str = ""
     bank_repay_loan_status_path: str = ""
     bank_mini_statement_path: str = ""
+    bank_balance_enquiry_path: str = ""
     bank_timeout_seconds: float = 30.0
 
     @property
@@ -69,6 +70,10 @@ class Settings(BaseSettings):
     @property
     def bank_mini_statement_url(self) -> str | None:
         return self._bank_url(self.bank_mini_statement_path)
+
+    @property
+    def bank_balance_enquiry_url(self) -> str | None:
+        return self._bank_url(self.bank_balance_enquiry_path)
 
     def _bank_url(self, path: str) -> str | None:
         """URL complète d'un endpoint de la banque, ou None tant qu'il n'est pas configuré."""

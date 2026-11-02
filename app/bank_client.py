@@ -20,7 +20,7 @@ def send_opt_in(db: Session, url: str, msisdn: str) -> CallSent:
 
 def send_check_eligibility(db: Session, url: str, msisdn: str) -> CallSent:
     # loanAmount : not mandatory
-    payload = {"msisdn": msisdn, "loanAmount": None}
+    payload = {"msisdn": msisdn}
     return _post_json(db, flow="check_eligibility", url=url, msisdn=msisdn, payload=payload)
 
 
@@ -90,6 +90,10 @@ def send_repay_loan_status(db: Session, url: str, msisdn: str, transaction_id: s
 
 def send_mini_statement(db: Session, url: str, msisdn: str) -> CallSent:
     return _post_json(db, flow="mini_statement", url=url, msisdn=msisdn, payload={"msisdn": msisdn})
+
+
+def send_balance_enquiry(db: Session, url: str, msisdn: str) -> CallSent:
+    return _post_json(db, flow="balance_enquiry", url=url, msisdn=msisdn, payload={"msisdn": msisdn})
 
 
 def new_transaction_id() -> str:
