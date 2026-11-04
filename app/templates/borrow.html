@@ -30,8 +30,7 @@
     <input type="hidden" name="fees_amount" value="{{ offer.fees_amount if offer.fees_amount is not none else '' }}">
     <label class="field">Enter amount to borrow
       <span class="inline-form">
-        <input type="number" name="amount" value="{{ amount }}" required step="1"
-               min="{{ offer.min_amount }}" max="{{ offer.eligible_amount }}">
+        <input type="number" name="amount" value="{{ amount }}" required step="1">
         <button type="submit">Borrow</button>
       </span>
     </label>

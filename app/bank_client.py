@@ -60,8 +60,8 @@ def send_topup_notification(
         "msisdn": msisdn,
         "amount": top_up_amount,
         "transactionId": transaction_id,
-        # "transactionTimestamp": transaction_timestamp,
-        # "availableBalanceAmount": available_balance_amount,
+        "transactionTimestamp": transaction_timestamp,
+        "availableBalanceAmount": available_balance_amount,
     }
     return _post_json(db, flow="topup_notification", url=url, msisdn=msisdn, payload=payload)
 
@@ -73,18 +73,13 @@ def send_lookup_details(db: Session, url: str, msisdn: str) -> CallSent:
 def send_repay_loan(
     db: Session, url: str, msisdn: str, repayment_amount: int, transaction_id: str, loan_id: str
 ) -> CallSent:
-    # payload = {
-    #     "repaymentAmount": repayment_amount,
-    #     "msisdn": msisdn,
-    #     "transactionId": transaction_id,
-    #     "loanId": loan_id,
-    # }
-
     payload = {
-        "amount": repayment_amount,
-        "loanId": loan_id,
+        "repaymentAmount": repayment_amount,
         "msisdn": msisdn,
+        "transactionId": transaction_id,
+        "loanId": loan_id,
     }
+
     return _post_json(db, flow="repay_loan", url=url, msisdn=msisdn, payload=payload)
 
 
