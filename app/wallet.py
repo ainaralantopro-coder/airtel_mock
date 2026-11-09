@@ -69,7 +69,7 @@ def _move(
     description = (description or "").strip() or None
     if description and len(description) > MAX_DESCRIPTION_LENGTH:
         raise WalletError(f"The description is limited to {MAX_DESCRIPTION_LENGTH} characters.")
-
+ 
     # populate_existing : relit le solde verrouillé même si le client est déjà chargé dans la session
     customer = db.scalar(
         select(Customer)

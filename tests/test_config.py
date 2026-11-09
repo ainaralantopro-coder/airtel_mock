@@ -5,9 +5,8 @@ from app.config import Settings
 SERVICES = {
     "subscription": ["opt_in"],
     "origination": ["check_eligibility", "apply_loan", "apply_loan_status", "confirm_loan", "cancel_loan"],
-    "repayment": ["lookup_details", "repay_loan", "repay_loan_status"],
+    "repayment": ["lookup_details", "repay_loan", "repay_loan_status", "topup_notification"],
     "collection": ["mini_statement", "balance_enquiry"],
-    "connector": ["topup_notification"],
 }
 ENDPOINTS = [(service, name) for service, names in SERVICES.items() for name in names]
 
@@ -21,7 +20,7 @@ def settings(**overrides) -> Settings:
 
 @pytest.mark.parametrize("service, name", ENDPOINTS)
 def test_each_endpoint_uses_its_microservice(service, name):
-    ports = {"subscription": 8089, "origination": 8082, "repayment": 8083, "collection": 8084, "connector": 8087}
+    ports = {"subscription": 8089, "origination": 8082, "repayment": 8083, "collection": 8084}
     s = settings(bank_base_url="http://fallback:9000",
                  **{f"bank_{svc}_base_url": f"http://bank:{port}/" for svc, port in ports.items()})
     assert getattr(s, f"bank_{name}_url") == f"http://bank:{ports[service]}/{name}"
