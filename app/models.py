@@ -205,7 +205,7 @@ class LoanRepayment(Base):
 class Autostrike(Base):
     """Demande d'autostrike reçue de la banque (POST /standard/v1/loan/autostrike), réussie ou non.
 
-    Sert aussi à rejouer la même réponse si la banque renvoie le même transaction.id (retry).
+    Sert aussi à refuser un transaction.id déjà utilisé (409).
     """
 
     __tablename__ = "autostrike"

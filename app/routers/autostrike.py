@@ -4,8 +4,8 @@ Le wallet de subscriber.msisdn est débité du montant demandé, sans prélèvem
 échec (TF), sans rien prélever, si le client n'est pas en défaut, si le montant dépasse son montant en défaut
 ou si son solde ne suffit pas. Un prélèvement réussi diminue d'autant le montant en défaut.
 
-Chaque demande est enregistrée dans la table autostrike ; un même transaction.id renvoyé (retry) reçoit la même
-réponse, sans nouveau débit.
+Chaque demande est enregistrée dans la table autostrike. Un transaction.id déjà utilisé est refusé (409), que la
+première demande ait réussi ou échoué : une nouvelle tentative porte un nouvel id.
 """
 
 import secrets
@@ -37,9 +37,8 @@ def autostrike(body: AutostrikeRequest, db: Session = Depends(get_db)):
     transaction_id = body.transaction.id
     amount = body.transaction.amount
 
-    previous = _find(db, transaction_id)
-    if previous is not None:
-        return _replay(previous, msisdn, amount)
+    if _exists(db, transaction_id):
+        raise _duplicate(transaction_id)
 
     customer = db.scalar(select(Customer).where(Customer.msisdn == msisdn))
     if customer is None:
@@ -88,12 +87,11 @@ def autostrike(body: AutostrikeRequest, db: Session = Depends(get_db)):
     try:
         db.commit()
     except IntegrityError:
-        # Même transaction.id traité en parallèle : notre débit est annulé, on renvoie le résultat de l'autre
+        # Même transaction.id traité en parallèle : notre débit est annulé
         db.rollback()
-        previous = _find(db, transaction_id)
-        if previous is None:
+        if not _exists(db, transaction_id):
             raise
-        return _replay(previous, msisdn, amount)
+        raise _duplicate(transaction_id) from None
     return _response(record)
 
 
@@ -110,14 +108,12 @@ def _active_defaulter(db: Session, msisdn: str) -> LoanDefaulter | None:
     )
 
 
-def _find(db: Session, transaction_id: str) -> Autostrike | None:
-    return db.scalar(select(Autostrike).where(Autostrike.transaction_id == transaction_id))
+def _exists(db: Session, transaction_id: str) -> bool:
+    return db.scalar(select(Autostrike.id).where(Autostrike.transaction_id == transaction_id)) is not None
 
 
-def _replay(previous: Autostrike, msisdn: str, amount) -> dict:
-    if previous.msisdn != msisdn or previous.amount != amount:
-        raise ApiError(409, f"transaction.id {previous.transaction_id} was already used for another autostrike")
-    return _response(previous)
+def _duplicate(transaction_id: str) -> ApiError:
+    return ApiError(409, f"transaction.id {transaction_id} was already used")
 
 
 def _response(record: Autostrike) -> dict:

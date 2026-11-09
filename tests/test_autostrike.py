@@ -88,28 +88,30 @@ def test_insufficient_balance_debits_nothing(client, auth_headers, customer):
     assert count(Autostrike) == 1 and count(WalletTransaction) == 1  # le dépôt seulement
 
 
-def test_retry_same_transaction_id_does_not_debit_twice(client, auth_headers, customer):
+def assert_duplicate(response):
+    assert response.status_code == 409
+    assert response.json()["data"] is None
+    status = response.json()["status"]
+    assert (status["response_code"], status["success"]) == ("DP03620004091", False)
+    assert status["message"] == "transaction.id LOANAUTOSTRIKE101 was already used"
+
+
+@pytest.mark.parametrize("change", [{}, {"reference": "other-ref"}, {"msisdn": "000"}, {"amount": "2000"}])
+def test_transaction_id_of_successful_autostrike_is_refused(client, auth_headers, customer, change):
     fund(client, customer, 5000)
-    first = client.post(URL, json=body(), headers=auth_headers).json()
-    second = client.post(URL, json=body(reference="other-ref"), headers=auth_headers).json()
-    assert second == first
+    assert client.post(URL, json=body(), headers=auth_headers).json()["data"]["transaction"]["status"] == "TS"
+    assert_duplicate(client.post(URL, json=body(**change), headers=auth_headers))
     assert balance(customer) == Decimal("4000") and count(Autostrike) == 1
 
 
-def test_retry_of_failed_transaction_stays_failed(client, auth_headers, customer):
-    first = client.post(URL, json=body(), headers=auth_headers).json()
+def test_transaction_id_of_failed_autostrike_is_refused_then_new_id_succeeds(client, auth_headers, customer):
+    assert client.post(URL, json=body(), headers=auth_headers).json()["data"]["transaction"]["status"] == "TF"
     fund(client, customer, 5000)
-    assert client.post(URL, json=body(), headers=auth_headers).json() == first
+    assert_duplicate(client.post(URL, json=body(), headers=auth_headers))
     assert balance(customer) == Decimal("5000")
 
-
-@pytest.mark.parametrize("change", [{"msisdn": "000"}, {"amount": "2000"}])
-def test_transaction_id_reused_for_another_autostrike(client, auth_headers, customer, change):
-    fund(client, customer, 5000)
-    client.post(URL, json=body(), headers=auth_headers)
-    r = client.post(URL, json=body(**change), headers=auth_headers)
-    assert r.status_code == 409
-    assert r.json()["data"] is None and r.json()["status"]["response_code"] == "DP03620004091"
+    r = client.post(URL, json=body(txn_id="LOANAUTOSTRIKE102"), headers=auth_headers)
+    assert r.json()["data"]["transaction"]["status"] == "TS"
     assert balance(customer) == Decimal("4000")
 
 
