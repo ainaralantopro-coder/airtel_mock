@@ -127,7 +127,7 @@ def test_unknown_subscriber(client, auth_headers):
 @pytest.mark.parametrize(
     "payload",
     [
-        body(amount="0"), body(amount="-10"), body(amount="10.5"), body(amount="abc"), body(amount=True),
+        body(amount="0"), body(amount="-10"), body(amount="10.505"), body(amount="0.001"), body(amount="abc"), body(amount=True),
         body(amount="1e30"), body(txn_id=" "), body(reference=""), body(msisdn=""),
         {k: v for k, v in body().items() if k != "transaction"},
     ],
@@ -147,6 +147,19 @@ def test_amount_as_number_and_without_currency(client, auth_headers, customer):
     del payload["subscriber"]["currency"], payload["transaction"]["currency"]
     r = client.post(URL, json=payload, headers=auth_headers)
     assert r.json()["status"]["message"].startswith("transfer of 1000 completed successfully")
+
+
+@pytest.mark.parametrize("amount", ["3508.91", 3508.91, "3508.910"])
+def test_amount_with_decimals(client, auth_headers, customer, amount):
+    fund(client, customer, 5000)
+    r = client.post(URL, json=body(amount=amount, txn_id="WLT2026111014332546943469"), headers=auth_headers)
+    assert r.status_code == 200 and r.json()["data"]["transaction"]["status"] == "TS"
+    assert r.json()["status"]["message"].startswith("transfer of ZMW 3508.91 completed successfully")
+    assert balance(customer) == Decimal("1491.09")
+    assert defaulted_amount(customer) == Decimal("6491.09")
+    with SessionLocal() as db:
+        movement = db.scalar(select(WalletTransaction).where(WalletTransaction.type == "AUTOSTRIKE"))
+    assert (movement.amount, movement.balance_after) == (Decimal("3508.91"), Decimal("1491.09"))
 
 
 

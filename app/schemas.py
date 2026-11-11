@@ -134,6 +134,7 @@ class DefaulterRequest(BaseModel):
 
 
 AUTOSTRIKE_MAX_AMOUNT = Decimal(10) ** 15  # même plafond que les opérations wallet
+AUTOSTRIKE_CENT = Decimal("0.01")
 
 
 class AutostrikeSubscriber(BaseModel):
@@ -175,11 +176,14 @@ class AutostrikeTransaction(BaseModel):
     @field_validator("amount")
     @classmethod
     def check_amount(cls, value: Decimal) -> Decimal:
-        if not value.is_finite() or value <= 0 or value != value.to_integral_value():
-            raise ValueError("amount must be a whole number greater than 0")
-        if value >= AUTOSTRIKE_MAX_AMOUNT:
+        # Jusqu'à 2 décimales, comme le montant en défaut (Set defaulter status) et les soldes du wallet
+        if not value.is_finite() or value <= 0:
+            raise ValueError("amount must be a number greater than 0")
+        if value >= AUTOSTRIKE_MAX_AMOUNT:  # avant quantize, qui échoue sur un très grand nombre
             raise ValueError(f"amount must be less than {AUTOSTRIKE_MAX_AMOUNT:f}")
-        return value
+        if value != value.quantize(AUTOSTRIKE_CENT):
+            raise ValueError("amount must have at most 2 decimal places")
+        return value.quantize(AUTOSTRIKE_CENT)
 
 
 class AutostrikeRequest(BaseModel):
