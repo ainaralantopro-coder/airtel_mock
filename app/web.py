@@ -3,9 +3,21 @@
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
+from fastapi import Request
 from fastapi.templating import Jinja2Templates
+from starlette.datastructures import FormData
 
 templates = Jinja2Templates(directory=Path(__file__).resolve().parent / "templates")
+
+
+async def read_form(request: Request) -> FormData:
+    """Formulaire lu par une dépendance asynchrone : les écrans qui appellent la banque restent synchrones.
+
+    FastAPI exécute une route synchrone dans un thread. Une route async faisant un appel HTTP bloquant figerait
+    la boucle d'uvicorn : la banque ne pourrait plus appeler le mock (User Enquiry pendant l'opt-in, par exemple)
+    avant d'avoir répondu, et chacun attendrait l'autre jusqu'au timeout.
+    """
+    return await request.form()
 
 
 def format_ariary(value) -> str:

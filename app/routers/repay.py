@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.datastructures import FormData
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -28,7 +29,7 @@ from app.config import get_settings
 from app.database import SessionLocal, get_db
 from app.models import CallSent, Customer, Loan, LoanRepayment
 from app.routers.loans import _bank_error, _plain, _to_decimal, _to_int, _to_str
-from app.web import format_amount, format_ariary, templates
+from app.web import format_amount, format_ariary, read_form, templates
 
 router = APIRouter(prefix="/repay", include_in_schema=False)
 
@@ -54,8 +55,7 @@ def repay_page(request: Request, msisdn: str = "", done: str = "", db: Session =
 
 
 @router.post("/lookup", response_class=HTMLResponse)
-async def lookup(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
+def lookup(request: Request, form: FormData = Depends(read_form), db: Session = Depends(get_db)):
     msisdn = str(form.get("msisdn", "")).strip()
     context = _context(db, msisdn)
 
@@ -81,8 +81,7 @@ async def lookup(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/pay", response_class=HTMLResponse)
-async def pay(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
+def pay(request: Request, form: FormData = Depends(read_form), db: Session = Depends(get_db)):
     borrower = str(form.get("msisdn", "")).strip()
     payer_msisdn = str(form.get("payer_msisdn", "")).strip()
     amount_text = str(form.get("amount", "")).strip()
@@ -104,13 +103,7 @@ async def pay(request: Request, db: Session = Depends(get_db)):
         context["amount_error"] = amount_error
         return templates.TemplateResponse(request, "repay.html", context, status_code=400)
 
-    # Payeur verrouillé jusqu'à la fin : le solde vérifié ici reste disponible pour le débit
-    payer = db.scalar(
-        select(Customer)
-        .where(Customer.msisdn == payer_msisdn)
-        .with_for_update()
-        .execution_options(populate_existing=True)
-    )
+    payer = lock_payer(db, payer_msisdn)
     if payer is None:
         context["payer_error"] = (
             f"No customer with MSISDN {payer_msisdn}." if payer_msisdn else "The payer MSISDN is required."
@@ -123,17 +116,35 @@ async def pay(request: Request, db: Session = Depends(get_db)):
         )
         return templates.TemplateResponse(request, "repay.html", context, status_code=400)
 
+    repayment = send_repayment(db, context["repay_url"], borrower, payer, amount, offer["loan_id"])
+    query = urlencode({"msisdn": borrower, "done": repayment.transaction_id})
+    return RedirectResponse(f"/repay?{query}", status_code=303)
+
+
+def lock_payer(db: Session, msisdn: str) -> Customer | None:
+    """Payeur verrouillé jusqu'à la fin de la transaction : le solde vérifié reste disponible pour le débit."""
+    return db.scalar(
+        select(Customer)
+        .where(Customer.msisdn == msisdn)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
+def send_repayment(
+    db: Session, repay_url: str, borrower: str, payer: Customer, amount: int, loan_id: str
+) -> LoanRepayment:
+    """Repay Loan pour un payeur verrouillé (lock_payer) dont le solde suffit. Le payeur n'est débité que si la
+    banque confirme ; le remboursement est enregistré (db.commit) quelle que soit l'issue."""
     transaction_id = new_transaction_id()
     with SessionLocal() as log_db:  # journal dans sa propre transaction : le verrou du payeur est conservé
-        call = send_repay_loan(
-            log_db, context["repay_url"], borrower, amount, transaction_id, offer["loan_id"]
-        )
+        call = send_repay_loan(log_db, repay_url, borrower, amount, transaction_id, loan_id)
         body = response_json(call)
         repayment = LoanRepayment(
             borrower_msisdn=borrower,
             payer_msisdn=payer.msisdn,
             payer_customer_id=payer.id,
-            loan_ref=offer["loan_id"],
+            loan_ref=loan_id,
             amount=Decimal(amount),
             transaction_id=transaction_id,
         )
@@ -144,8 +155,7 @@ async def pay(request: Request, db: Session = Depends(get_db)):
         _update_mock_loan(db, repayment)
     db.add(repayment)
     db.commit()
-    query = urlencode({"msisdn": borrower, "done": transaction_id})
-    return RedirectResponse(f"/repay?{query}", status_code=303)
+    return repayment
 
 
 @router.post("/{repayment_pk}/status", response_class=HTMLResponse)

@@ -4,12 +4,13 @@ import json
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
+from starlette.datastructures import FormData
 from sqlalchemy.orm import Session
 
 from app.bank_client import send_mini_statement
 from app.config import get_settings
 from app.database import get_db
-from app.web import templates
+from app.web import read_form, templates
 
 router = APIRouter(prefix="/mini-statement", include_in_schema=False)
 
@@ -20,8 +21,7 @@ def mini_statement_form(request: Request):
 
 
 @router.post("", response_class=HTMLResponse)
-async def mini_statement(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
+def mini_statement(request: Request, form: FormData = Depends(read_form), db: Session = Depends(get_db)):
     msisdn = str(form.get("msisdn", "")).strip()
     context = _context(msisdn)
 

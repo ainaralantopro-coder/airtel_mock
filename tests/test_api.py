@@ -1,4 +1,6 @@
 import re
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from io import BytesIO
@@ -258,6 +260,28 @@ def test_register_opt_in_success(client, customer, monkeypatch):
     with SessionLocal() as db:
         call = db.scalar(select(CallSent))
     assert (call.flow, call.response_status) == ("opt_in", 200)
+
+
+def test_register_while_bank_calls_user_enquiry(client, customer, auth_headers, monkeypatch):
+    """La banque appelle User Enquiry sur le mock avant de répondre à l'opt-in : le mock doit pouvoir répondre."""
+    enquiry = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        pool = ThreadPoolExecutor(max_workers=1)
+        future = pool.submit(client.get, f"/standard/v2/users/{customer}", headers=auth_headers)
+        try:
+            enquiry["status"] = future.result(timeout=5).status_code
+        except FutureTimeout:
+            enquiry["status"] = "timeout"  # boucle du mock bloquée par l'appel sortant
+            return httpx.Response(504, json={})
+        finally:
+            pool.shutdown(wait=False)  # sans attendre un appel resté bloqué
+        return httpx.Response(200, json=OPT_IN_OK)
+
+    mock_bank(monkeypatch, handler)
+    r = client.post("/register", data={"msisdn": customer})
+    assert enquiry == {"status": 200}
+    assert "opted in." in r.text and is_opted_in(customer) is True
 
 
 @pytest.mark.parametrize(

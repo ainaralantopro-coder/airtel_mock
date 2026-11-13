@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.datastructures import FormData
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,7 +12,7 @@ from app import wallet
 from app.database import get_db
 from app.models import Customer, WalletTransaction
 from app.topup_notification import notify_if_defaulter
-from app.web import templates
+from app.web import read_form, templates
 
 router = APIRouter(prefix="/wallet", include_in_schema=False)
 
@@ -31,17 +32,16 @@ def wallet_page(request: Request, msisdn: str = "", done: str = "", db: Session 
 
 
 @router.post("/deposit", response_class=HTMLResponse)
-async def deposit(request: Request, db: Session = Depends(get_db)):
-    return await _operate(request, db, wallet.deposit, "deposit")
+def deposit(request: Request, form: FormData = Depends(read_form), db: Session = Depends(get_db)):
+    return _operate(request, form, db, wallet.deposit, "deposit")
 
 
 @router.post("/withdraw", response_class=HTMLResponse)
-async def withdraw(request: Request, db: Session = Depends(get_db)):
-    return await _operate(request, db, wallet.withdraw, "withdraw")
+def withdraw(request: Request, form: FormData = Depends(read_form), db: Session = Depends(get_db)):
+    return _operate(request, form, db, wallet.withdraw, "withdraw")
 
 
-async def _operate(request: Request, db: Session, operation, form_name: str):
-    form = await request.form()
+def _operate(request: Request, form: FormData, db: Session, operation, form_name: str):
     msisdn = str(form.get("msisdn", "")).strip()
     amount_text = str(form.get("amount", "")).strip()
 

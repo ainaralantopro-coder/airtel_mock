@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from starlette.datastructures import FormData
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,7 +15,7 @@ from app.database import get_db
 from app.excel import XLSX_MEDIA_TYPE, build_xlsx
 from app.models import Customer, LoanDefaulter, MessageSent
 from app.schemas import MSISDN_MAX_LENGTH, CustomerCreate, is_valid_msisdn
-from app.web import templates
+from app.web import read_form, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -66,8 +67,7 @@ def customer_form(request: Request):
 
 
 @router.post("/customers/new", response_class=HTMLResponse)
-async def customer_create(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
+def customer_create(request: Request, form: FormData = Depends(read_form), db: Session = Depends(get_db)):
     values = {key: value for key, value in form.items() if isinstance(value, str)}
     data = {**values, "is_barred": "is_barred" in form, "is_pin_set": "is_pin_set" in form}
 
@@ -98,8 +98,7 @@ def register_form(request: Request, msisdn: str = ""):
 
 
 @router.post("/register", response_class=HTMLResponse)
-async def register_submit(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
+def register_submit(request: Request, form: FormData = Depends(read_form), db: Session = Depends(get_db)):
     msisdn = str(form.get("msisdn", "")).strip()
     opt_in_url = get_settings().bank_opt_in_url
     context = {"msisdn": msisdn, "opt_in_url": opt_in_url}

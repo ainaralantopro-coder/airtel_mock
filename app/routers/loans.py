@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
+from starlette.datastructures import FormData
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,7 +25,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.models import CallSent, Loan
 from app.schemas import MSISDN_MAX_LENGTH, is_valid_msisdn
-from app.web import templates
+from app.web import read_form, templates
 
 router = APIRouter(prefix="/loans", include_in_schema=False)
 
@@ -55,8 +56,7 @@ def borrow_form(request: Request, msisdn: str = ""):
 
 
 @router.post("/borrow/eligibility", response_class=HTMLResponse)
-async def check_eligibility(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
+def check_eligibility(request: Request, form: FormData = Depends(read_form), db: Session = Depends(get_db)):
     msisdn = str(form.get("msisdn", "")).strip()
     context = _borrow_context(msisdn)
 
@@ -94,8 +94,7 @@ async def check_eligibility(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/borrow/apply", response_class=HTMLResponse)
-async def apply_loan(request: Request, db: Session = Depends(get_db)):
-    form = await request.form()
+def apply_loan(request: Request, form: FormData = Depends(read_form), db: Session = Depends(get_db)):
     msisdn = str(form.get("msisdn", "")).strip()
     amount_text = str(form.get("amount", "")).strip()
     offer = {
