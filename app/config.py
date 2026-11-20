@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     bank_token_client_id: str = ""
     bank_token_client_secret: str = ""
     bank_token_scope: str = ""
+    bank_token_verify_tls: bool = True  # false : certificat non vérifié (auto-signé), comme curl -k
 
     @property
     def bank_opt_in_url(self) -> str | None:

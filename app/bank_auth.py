@@ -13,6 +13,7 @@ from app.config import get_settings
 
 # Marge avant expiration : un token ne doit pas expirer entre son envoi et son contrôle par la banque
 EXPIRY_MARGIN_SECONDS = 30
+MAX_REDIRECTS = 3
 
 _lock = threading.Lock()
 _token: str | None = None
@@ -52,9 +53,22 @@ def _request_token() -> tuple[str, float]:
     }
     if settings.bank_token_scope:
         data["scope"] = settings.bank_token_scope
+    url = httpx.URL(settings.bank_token_url)
     try:
-        with httpx.Client(timeout=settings.bank_timeout_seconds) as client:
-            response = client.post(settings.bank_token_url, data=data)
+        with httpx.Client(timeout=settings.bank_timeout_seconds, verify=settings.bank_token_verify_tls) as client:
+            for _ in range(MAX_REDIRECTS + 1):
+                response = client.post(url, data=data)
+                if not response.is_redirect:
+                    break
+                # Comme curl --location : 307 / 308 (http -> https de Keycloak) renvoie la même requête POST.
+                # Seulement vers le même hôte, pour que le secret ne parte pas ailleurs.
+                target = url.join(response.headers.get("Location", ""))
+                if response.status_code not in (307, 308) or target.host != url.host:
+                    raise TokenError(f"HTTP {response.status_code}, redirected to {target}: "
+                                     "set BANK_TOKEN_URL to this URL")
+                url = target
+            else:
+                raise TokenError(f"too many redirects (last: {url})")
     except httpx.HTTPError as exc:
         raise TokenError(f"{type(exc).__name__}: {exc}") from None
     try:
