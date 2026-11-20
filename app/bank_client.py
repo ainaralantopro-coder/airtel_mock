@@ -8,6 +8,7 @@ from datetime import datetime
 import httpx
 from sqlalchemy.orm import Session
 
+from app import bank_auth
 from app.config import get_settings
 from app.models import CallSent
 
@@ -140,15 +141,34 @@ def _post_json(db: Session, flow: str, url: str, msisdn: str | None, payload: di
 
     started = time.perf_counter()
     try:
-        with httpx.Client(timeout=get_settings().bank_timeout_seconds) as client:
-            response = client.post(url, content=body, headers=headers)
+        response = _send(url, body, headers)
         call.response_status = response.status_code
         call.response_headers = dict(response.headers)
         call.response_body = response.text
+    except bank_auth.TokenError as exc:
+        call.error = f"Token request failed: {exc}"
     except httpx.HTTPError as exc:
         call.error = f"{type(exc).__name__}: {exc}"
+    if any(name.lower() == "authorization" for name in headers):
+        call.request_headers = {**headers, "Authorization": "Bearer ***"}  # le token n'est pas journalisé
     call.duration_ms = int((time.perf_counter() - started) * 1000)
 
     db.add(call)
     db.commit()
     return call
+
+
+def _send(url: str, body: str, headers: dict) -> httpx.Response:
+    """POST avec le token de la banque. Un 401 (token révoqué ou expiré plus tôt que prévu) est retenté une fois
+    avec un nouveau token. Complète headers avec Authorization."""
+    with httpx.Client(timeout=get_settings().bank_timeout_seconds) as client:
+        authorization = bank_auth.authorization_header()
+        if authorization is None:
+            return client.post(url, content=body, headers=headers)
+        headers["Authorization"] = authorization
+        response = client.post(url, content=body, headers=headers)
+        if response.status_code == 401:
+            bank_auth.invalidate()
+            headers["Authorization"] = bank_auth.authorization_header()
+            response = client.post(url, content=body, headers=headers)
+        return response

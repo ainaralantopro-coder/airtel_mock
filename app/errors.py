@@ -1,7 +1,8 @@
 """Réponses d'erreur des API exposées à la banque.
 
 Seuls les codes de succès sont connus (DP02200000001 pour users, DP02800001001 pour notify et
-txn/enquiry, DP02810001001 pour loans-defaulter, DP03620001001 / ESB000010 pour autostrike).
+txn/enquiry, DP02810001001 pour loans-defaulter, DP03620001001 / ESB000010 pour autostrike, DP03670000001 pour
+loan-kyc).
 Les codes d'erreur ci-dessous sont des valeurs du mock, à remplacer si la spec réelle les fournit.
 """
 
@@ -45,13 +46,22 @@ AUTOSTRIKE_RESPONSE_CODES = {
 AUTOSTRIKE_RESULT_SUCCESS = "ESB000010"
 AUTOSTRIKE_RESULT_FAILURE = "ESB000001"
 
+KYC_RESPONSE_CODES = {
+    200: "DP03670000001",
+    400: "DP03674000001",
+    401: "DP03674010001",
+    404: "DP03674040001",
+    500: "DP03675000001",
+}
+
 AUTH_PATH_PREFIX = "/auth"
 USERS_PATH_PREFIX = "/standard"
 NOTIFY_PATH_PREFIX = "/term-loans"
 TOPUP_PATH_PREFIX = "/topup-notification"
 AUTOSTRIKE_PATH_PREFIX = "/standard/v1/loan"  # sous /standard, mais avec sa propre enveloppe
+KYC_PATH_PREFIX = "/loan-kyc"
 # API à enveloppe {"status": ...} : erreurs de validation et erreurs internes au même format
-ENVELOPE_PATH_PREFIXES = (USERS_PATH_PREFIX, NOTIFY_PATH_PREFIX, TOPUP_PATH_PREFIX)
+ENVELOPE_PATH_PREFIXES = (USERS_PATH_PREFIX, NOTIFY_PATH_PREFIX, TOPUP_PATH_PREFIX, KYC_PATH_PREFIX)
 PARTNER_PATH_PREFIXES = (AUTH_PATH_PREFIX, *ENVELOPE_PATH_PREFIXES)
 
 
@@ -98,6 +108,15 @@ def topup_status(code: int, message: str) -> dict:
     }
 
 
+def kyc_status(code: int, message: str) -> dict:
+    return {
+        "response_code": KYC_RESPONSE_CODES.get(code, KYC_RESPONSE_CODES[500]),
+        "code": str(code),
+        "success": code == 200,
+        "message": message,
+    }
+
+
 def autostrike_status(code: int, message: str, success: bool | None = None) -> dict:
     """Enveloppe de l'autostrike. success=False avec code 200 : demande traitée mais transaction échouée (TF)."""
     success = code == 200 if success is None else success
@@ -124,6 +143,8 @@ def error_response(request: Request, status_code: int, message: str, headers=Non
         return JSONResponse(status_code=status_code, content=content, headers=headers)
     if request.url.path.startswith(NOTIFY_PATH_PREFIX):
         status = notify_status(status_code, message)
+    elif request.url.path.startswith(KYC_PATH_PREFIX):
+        status = kyc_status(status_code, message)
     else:
         status = users_status(status_code, message)
     return JSONResponse(status_code=status_code, content={"data": None, "status": status}, headers=headers)

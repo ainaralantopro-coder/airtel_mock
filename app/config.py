@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     bank_mini_statement_path: str = ""
     bank_balance_enquiry_path: str = ""
     bank_timeout_seconds: float = 30.0
+    # Token OAuth2 (client_credentials) envoyé en Authorization: Bearer. URL vide : appels sans token.
+    bank_token_url: str = ""
+    bank_token_client_id: str = ""
+    bank_token_client_secret: str = ""
+    bank_token_scope: str = ""
 
     @property
     def bank_opt_in_url(self) -> str | None:

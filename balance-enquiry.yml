@@ -3,9 +3,9 @@ info:
   title: Balance enquiry
   version: "1.0"
 servers:
-  - url: http://192.168.123.97:8001
+  - url: https://openapiuat.airtel.mg
 paths:
-  /standard/v2/users/{msisdn}/balance:
+  /loan-kyc/v1/user/{msisdn}:
     get:
       summary: Balance enquiry
       security:
@@ -16,7 +16,19 @@ paths:
           required: true
           schema:
             type: string
-          example: "997739692"
+          example: "331234567"
+        - name: X-Country
+          in: header
+          required: true
+          schema:
+            type: string
+          example: MG
+        - name: X-Currency
+          in: header
+          required: true
+          schema:
+            type: string
+          example: MGA
       responses:
         "200":
           description: Success
@@ -24,34 +36,32 @@ paths:
             application/json:
               example:
                 data:
-                  balance: "1000"
+                  fic: "0.00"
+                  id_number: "101234567890"
+                  is_barred: false
+                  gender: Male
+                  last_name: Rakoto
+                  language: fr
+                  account_status: "Y"
+                  middle_name: ""
+                  is_pin_set: true
+                  last_pin_reset_date: ""
+                  frozen_amount: "0.00"
+                  nationality: MG
+                  balance: "150000.00"
+                  user_id: PT260101.0900.000001
+                  created_on: ""
+                  dob: "1990-01-15 00:00:00.0"
+                  reg_status: SUBS
+                  grade: SUBS
+                  id_type: NATIONAL_ID
+                  msisdn: "331234567"
+                  first_name: Andry
                 status:
+                  response_code: DP03670000001
                   code: "200"
-                  message: success
-                  result_code: DP02200000001
                   success: true
-        "401":
-          description: Missing, invalid or expired token
-          content:
-            application/json:
-              example:
-                data: null
-                status:
-                  code: "401"
-                  message: Invalid access token
-                  result_code: DP02401000001
-                  success: false
-        "404":
-          description: Unknown MSISDN
-          content:
-            application/json:
-              example:
-                data: null
-                status:
-                  code: "404"
-                  message: User not found
-                  result_code: DP02404000001
-                  success: false
+                  message: success
 components:
   securitySchemes:
     bearerAuth:

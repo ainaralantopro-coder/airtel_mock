@@ -22,6 +22,9 @@ os.environ["BANK_REPAY_LOAN_PATH"] = "/repay-loan"
 os.environ["BANK_REPAY_LOAN_STATUS_PATH"] = "/repay-loan-status"
 os.environ["BANK_MINI_STATEMENT_PATH"] = "/mini-statement"
 os.environ["BANK_BALANCE_ENQUIRY_PATH"] = "/balance-enquiry"
+os.environ["BANK_TOKEN_URL"] = ""  # pas de token, sauf dans test_bank_auth.py
+for _service in ("SUBSCRIPTION", "ORIGINATION", "REPAYMENT", "COLLECTION"):
+    os.environ[f"BANK_{_service}_BASE_URL"] = ""  # tout vers BANK_BASE_URL, quel que soit le .env local
 
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402

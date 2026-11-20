@@ -14,7 +14,7 @@ from app.errors import (
 )
 from app.middleware import CallReceiveMiddleware
 from app.routers import (
-    auth, autostrike, balance_enquiry, loans, mini_statement, notify, repay, topup, txn, ui, users, wallet,
+    auth, autostrike, balance_enquiry, kyc, loans, mini_statement, notify, repay, topup, txn, ui, users, wallet,
 )
 
 app = FastAPI(
@@ -33,6 +33,7 @@ app.mount("/static", StaticFiles(directory=Path(__file__).resolve().parent / "st
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(kyc.router)
 app.include_router(autostrike.router)
 app.include_router(notify.router)
 app.include_router(txn.router)
